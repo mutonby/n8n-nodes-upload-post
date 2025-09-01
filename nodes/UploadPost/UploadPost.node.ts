@@ -857,7 +857,13 @@ export class UploadPost implements INodeType {
 			// Optional scheduling
 			const scheduledDate = this.getNodeParameter('scheduledDate', i) as string | undefined;
 			if (scheduledDate) {
-				formData.scheduled_date = scheduledDate;
+				let normalizedDate = scheduledDate;
+				// If the date string has no timezone info (no trailing Z and no +/- offset), append Z (UTC)
+				const hasTimezone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(normalizedDate);
+				if (!hasTimezone) {
+					normalizedDate = `${normalizedDate}Z`;
+				}
+				formData.scheduled_date = normalizedDate;
 			}
 
 			switch (operation) {
