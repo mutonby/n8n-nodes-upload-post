@@ -76,6 +76,7 @@ export class UploadPost implements INodeType {
 					{ name: 'Facebook', value: 'facebook' },
 					{ name: 'Instagram', value: 'instagram' },
 					{ name: 'LinkedIn', value: 'linkedin' },
+					{ name: 'Pinterest', value: 'pinterest' },
 					{ name: 'Threads', value: 'threads' },
 					{ name: 'TikTok', value: 'tiktok' },
 					{ name: 'X (Twitter)', value: 'x' },
@@ -85,12 +86,31 @@ export class UploadPost implements INodeType {
 				description: 'Platform(s) to upload to. Supported platforms vary by operation.',
 			},
 			{
+				displayName: 'Pinterest Board ID',
+				name: 'pinterestBoardId',
+				type: 'string',
+				default: '',
+				description: 'Target Pinterest board ID. Required when Pinterest is selected.',
+				displayOptions: {
+					show: {
+						platform: ['pinterest']
+					},
+				},
+			},
+			{
 				displayName: 'Title / Main Content',
 				name: 'title',
 				type: 'string',
 				required: true,
 				default: '',
 				description: 'Title of the post. For Upload Text, this is the main text content. For some video platforms, this acts as a fallback for description if a specific description is not provided.',
+			},
+			{
+				displayName: 'Scheduled Date',
+				name: 'scheduledDate',
+				type: 'dateTime',
+				default: '',
+				description: 'Optional scheduling date/time. If set, the API will schedule the publication instead of posting immediately.',
 			},
 
 		// Fields for Upload Photo(s)
@@ -193,6 +213,19 @@ export class UploadPost implements INodeType {
 				displayOptions: {
 					show: {
 						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
+						platform: ['facebook']
+					},
+				},
+			},
+			{
+				displayName: 'Facebook Link (Text)',
+				name: 'facebookLink',
+				type: 'string',
+				default: '',
+				description: 'URL to attach to the Facebook text post as a link preview. Only for Upload Text.',
+				displayOptions: {
+					show: {
+						operation: ['uploadText'],
 						platform: ['facebook']
 					},
 				},
@@ -658,6 +691,19 @@ export class UploadPost implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'YouTube Thumbnail (File or URL)',
+				name: 'youtubeThumbnail',
+				type: 'string',
+				default: '',
+				description: 'Custom thumbnail for YouTube video. Provide a binary property name (e.g., data) or a direct HTTP/HTTPS URL. Only for Upload Video.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['youtube']
+					},
+				},
+			},
 
 		// ----- Threads Specific Parameters (Not for Photo) -----
 			{
@@ -808,6 +854,12 @@ export class UploadPost implements INodeType {
 			formData.user = user;
 			formData.title = title;
 
+			// Optional scheduling
+			const scheduledDate = this.getNodeParameter('scheduledDate', i) as string | undefined;
+			if (scheduledDate) {
+				formData.scheduled_date = scheduledDate;
+			}
+
 			switch (operation) {
 				case 'uploadPhotos':
 					endpoint = '/upload_photos';
@@ -873,7 +925,7 @@ export class UploadPost implements INodeType {
 					endpoint = '/upload';
 					const videoInput = this.getNodeParameter('video', i) as string;
 					
-					const allowedVideoPlatforms = ['tiktok', 'instagram', 'linkedin', 'youtube', 'facebook', 'x', 'threads'];
+					const allowedVideoPlatforms = ['tiktok', 'instagram', 'linkedin', 'youtube', 'facebook', 'x', 'threads', 'pinterest'];
 					platforms = platforms.filter(p => allowedVideoPlatforms.includes(p));
 					formData['platform[]'] = platforms;
 
@@ -910,6 +962,11 @@ export class UploadPost implements INodeType {
 					formData['platform[]'] = platforms;
 					break;
 			}
+			// Pinterest specific
+			if (platforms.includes('pinterest')) {
+				const pinterestBoardId = this.getNodeParameter('pinterestBoardId', i) as string | undefined;
+				if (pinterestBoardId) formData.pinterest_board_id = pinterestBoardId;
+			}
 
 			// Add platform specific parameters conditionally
 			if (platforms.includes('linkedin')) {
@@ -938,6 +995,9 @@ export class UploadPost implements INodeType {
 					const facebookVideoState = this.getNodeParameter('facebookVideoState', i) as string | undefined;
 					if (facebookVideoDescription) formData.description = facebookVideoDescription;
 					if (facebookVideoState) formData.video_state = facebookVideoState;
+				} else if (operation === 'uploadText') {
+					const facebookLink = this.getNodeParameter('facebookLink', i) as string | undefined;
+					if (facebookLink) formData.link = facebookLink;
 				}
 			}
 
@@ -1025,6 +1085,7 @@ export class UploadPost implements INodeType {
 				const youtubeLicense = this.getNodeParameter('youtubeLicense', i) as string | undefined;
 				const youtubePublicStatsViewable = this.getNodeParameter('youtubePublicStatsViewable', i) as boolean | undefined;
 				const youtubeMadeForKids = this.getNodeParameter('youtubeMadeForKids', i) as boolean | undefined;
+				const youtubeThumbnail = this.getNodeParameter('youtubeThumbnail', i) as string | undefined;
 
 				if (youtubeDescription) formData.description = youtubeDescription;
 				if (youtubeTagsRaw) formData.tags = youtubeTagsRaw.split(',').map(tag => tag.trim());
@@ -1034,6 +1095,27 @@ export class UploadPost implements INodeType {
 				if (youtubeLicense) formData.license = youtubeLicense;
 				if (youtubePublicStatsViewable !== undefined) formData.publicStatsViewable = String(youtubePublicStatsViewable);
 				if (youtubeMadeForKids !== undefined) formData.madeForKids = String(youtubeMadeForKids);
+
+				if (youtubeThumbnail) {
+					if (youtubeThumbnail.toLowerCase().startsWith('http://') || youtubeThumbnail.toLowerCase().startsWith('https://')) {
+						formData.thumbnail_url = youtubeThumbnail;
+					} else {
+						const binaryPropertyName = youtubeThumbnail;
+						try {
+							const binaryBuffer = await this.helpers.getBinaryDataBuffer(i, binaryPropertyName);
+							const binaryFileDetails = items[i].binary![binaryPropertyName];
+							formData.thumbnail = {
+								value: binaryBuffer,
+								options: {
+									filename: binaryFileDetails.fileName ?? binaryPropertyName,
+									contentType: binaryFileDetails.mimeType,
+								},
+							};
+						} catch (error) {
+							this.logger.warn(`[UploadPost Node] Could not find binary data for YouTube thumbnail property '${binaryPropertyName}' in item ${i}. Error: ${error.message}`);
+						}
+					}
+				}
 			}
 
 			if (platforms.includes('threads')) {

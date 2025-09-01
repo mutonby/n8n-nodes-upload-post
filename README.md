@@ -33,14 +33,18 @@ The node provides the following operations:
 
 *   **Upload Photo(s)**: Upload one or more photos to supported platforms.
     *   Supports file uploads and photo URLs.
-    *   Common parameters: User Identifier, Platform(s), Title, Photos (Files or URLs), Caption.
-    *   Platform-specific parameters are available for LinkedIn, Facebook, TikTok, and Instagram.
+    *   Common parameters: User Identifier, Platform(s), Title, Photos (Files or URLs), Caption, Scheduled Date (optional).
+    *   Platform-specific parameters are available for LinkedIn, Facebook, TikTok, Instagram, and Pinterest.
+    *   Pinterest: requires `Pinterest Board ID` when Pinterest is selected.
 *   **Upload Video**: Upload a single video to supported platforms.
     *   Supports file uploads and video URLs.
-    *   Common parameters: User Identifier, Platform(s), Title, Video (File or URL).
-    *   Platform-specific parameters are available for LinkedIn, Facebook, TikTok, Instagram, YouTube, Threads, and X (Twitter).
+    *   Common parameters: User Identifier, Platform(s), Title, Video (File or URL), Scheduled Date (optional).
+    *   YouTube: supports custom thumbnail via URL or binary (YouTube Thumbnail).
+    *   Platform-specific parameters are available for LinkedIn, Facebook, TikTok, Instagram, YouTube, Threads, X (Twitter), and Pinterest.
+    *   Pinterest: requires `Pinterest Board ID` when Pinterest is selected.
 *   **Upload Text**: Upload a text-based post to supported platforms.
-    *   Common parameters: User Identifier, Platform(s), Title (used as content for most platforms).
+    *   Common parameters: User Identifier, Platform(s), Title (used as content for most platforms), Scheduled Date (optional).
+    *   Facebook: supports `Facebook Link` to attach a URL with link preview.
     *   Platform-specific parameters are available for LinkedIn, Facebook, Threads, and X (Twitter).
 
 Refer to the [Upload Post API Documentation](https://docs.upload-post.com) for detailed information on parameters and platform requirements.
