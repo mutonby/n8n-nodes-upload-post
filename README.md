@@ -29,25 +29,65 @@ To use this node, you need to configure the Upload Post API credentials:
 
 ## Operations
 
-The node provides the following operations:
+The node provides the following operations grouped for clarity:
 
-*   **Upload Photo(s)**: Upload one or more photos to supported platforms.
-    *   Supports file uploads and photo URLs.
-    *   Common parameters: User Identifier, Platform(s), Title, Photos (Files or URLs), Caption, Scheduled Date (optional).
-    *   Platform-specific parameters are available for LinkedIn, Facebook, TikTok, Instagram, and Pinterest.
-    *   Pinterest: requires `Pinterest Board ID` when Pinterest is selected.
-*   **Upload Video**: Upload a single video to supported platforms.
-    *   Supports file uploads and video URLs.
-    *   Common parameters: User Identifier, Platform(s), Title, Video (File or URL), Scheduled Date (optional).
-    *   YouTube: supports custom thumbnail via URL or binary (YouTube Thumbnail).
-    *   Platform-specific parameters are available for LinkedIn, Facebook, TikTok, Instagram, YouTube, Threads, X (Twitter), and Pinterest.
-    *   Pinterest: requires `Pinterest Board ID` when Pinterest is selected.
-*   **Upload Text**: Upload a text-based post to supported platforms.
-    *   Common parameters: User Identifier, Platform(s), Title (used as content for most platforms), Scheduled Date (optional).
-    *   Facebook: supports `Facebook Link` to attach a URL with link preview.
-    *   Platform-specific parameters are available for LinkedIn, Facebook, Threads, and X (Twitter).
+### Upload Actions
+- **Upload Photo(s)**: Upload one or more photos to supported platforms.
+  - Supports file uploads and photo URLs.
+  - Common parameters: User Identifier, Platform(s), Title, Photos (Files or URLs), Caption, Scheduled Date (optional).
+  - Platform-specific parameters are available for LinkedIn, Facebook, TikTok, Instagram, and Pinterest.
+  - Pinterest: requires `Pinterest Board ID` when Pinterest is selected.
+- **Upload Video**: Upload a single video to supported platforms.
+  - Supports file uploads and video URLs.
+  - Common parameters: User Identifier, Platform(s), Title, Video (File or URL), Scheduled Date (optional).
+  - YouTube: supports custom thumbnail via URL or binary (YouTube Thumbnail).
+  - Platform-specific parameters are available for LinkedIn, Facebook, TikTok, Instagram, YouTube, Threads, X (Twitter), and Pinterest.
+  - Pinterest: requires `Pinterest Board ID` when Pinterest is selected.
+- **Upload Text**: Upload a text-based post to supported platforms.
+  - Common parameters: User Identifier, Platform(s), Title (used as content for most platforms), Scheduled Date (optional).
+  - Facebook: supports `Facebook Link` to attach a URL with link preview.
+  - Platform-specific parameters are available for LinkedIn, Facebook, Threads, and X (Twitter).
+
+### Status & History Actions
+- **Get Upload Status**: Check the status/result of an async upload by `request_id`.
+  - Parameters: Request ID.
+- **Get Upload History**: List past uploads.
+  - Parameters: Page (default 1), Limit (default 20). Limit can be 20, 50, or 100.
+
+### User Actions (incl. JWT for custom platform integration)
+- ⚠️ JWT endpoints are only needed if you integrate Upload-Post into your own platform and want end-users to link their social accounts via your UI.
+- **List Users**: Retrieve Upload-Post profiles created under your API key.
+- **Create User**: Create a new user profile.
+  - Parameters: New User Identifier (username).
+- **Delete User**: Delete an existing user profile.
+  - Parameters: Username to delete.
+- **Generate JWT (for platform integration)**: Generate a connection URL (JWT) for a given profile so the user can link social accounts.
+  - Parameters: User Identifier (username). Optional branding parameters may apply server-side.
+- **Validate JWT (for platform integration)**: Validate a connection token if you need to check it from your backend.
+  - Parameters: JWT.
 
 Refer to the [Upload Post API Documentation](https://docs.upload-post.com) for detailed information on parameters and platform requirements.
+
+### Waiting for asynchronous uploads
+
+Some uploads are processed asynchronously and the API returns immediately with a `request_id`. This happens when:
+- You enable "Upload Asynchronously" in the node, or
+- The upload takes longer than ~59 seconds and the API switches to async mode automatically.
+
+You have two ways to handle this in n8n:
+
+1) Built-in node polling (recommended for simplicity)
+- In Upload operations (Photos/Video/Text), enable "Wait for Completion".
+- Configure "Poll Interval (Seconds)" (default 10) and "Timeout (Seconds)" (default 300).
+- The node will poll `GET /api/uploadposts/status?request_id=...` until success/failure or timeout and return the final result.
+
+2) Workflow-level polling (more control)
+- Use the Upload operation, read `request_id` from its output.
+- Add a Wait node (e.g., 10s), then call "Get Upload Status" passing the `request_id`.
+- Loop with an IF node until the status is final (success/failed) or a max attempts limit is reached.
+
+Related docs:
+- Profiles & JWT reference (context): [User Profiles API](https://docs.upload-post.com/api/user-profiles#create-user-profile)
 
 ## Resources
 

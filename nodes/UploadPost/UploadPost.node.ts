@@ -31,32 +31,60 @@ export class UploadPost implements INodeType {
 		],
 		properties: [
 			{
+				displayName: 'Resource',
+				name: 'resource',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{ name: 'Upload', value: 'uploads' },
+					{ name: 'Status & History', value: 'monitoring' },
+					{ name: 'User', value: 'users' },
+				],
+				default: 'uploads',
+			},
+			{
 				displayName: 'Operation',
 				name: 'operation',
 				type: 'options',
 				noDataExpression: true,
 				options: [
-					{
-						name: 'Upload Photo(s)',
-						value: 'uploadPhotos',
-						action: 'Upload photos',
-						description: 'Upload one or more photos (Supports: TikTok, Instagram, LinkedIn, Facebook, X, Threads)',
-					},
-					{
-						name: 'Upload Video',
-						value: 'uploadVideo',
-						action: 'Upload a video',
-						description: 'Upload a single video (Supports: TikTok, Instagram, LinkedIn, YouTube, Facebook, X, Threads)',
-					},
-					{
-						name: 'Upload Text',
-						value: 'uploadText',
-						action: 'Upload a text post',
-						description: 'Upload a text-based post (Supports: X, LinkedIn, Facebook, Threads)',
-					},
+					{ name: 'Upload Photo(s)', value: 'uploadPhotos', action: 'Upload photos', description: 'Upload one or more photos (Supports: TikTok, Instagram, LinkedIn, Facebook, X, Threads)' },
+					{ name: 'Upload Text', value: 'uploadText', action: 'Upload a text post', description: 'Upload a text-based post (Supports: X, LinkedIn, Facebook, Threads)' },
+					{ name: 'Upload Video', value: 'uploadVideo', action: 'Upload a video', description: 'Upload a single video (Supports: TikTok, Instagram, LinkedIn, YouTube, Facebook, X, Threads)' },
 				],
 				default: 'uploadPhotos',
+				displayOptions: { show: { resource: ['uploads'] } },
 			},
+			// Operations for Status & History
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{ name: 'Get Upload History', value: 'getHistory', action: 'Get upload history', description: 'List past uploads with optional filters' },
+					{ name: 'Get Upload Status', value: 'getStatus', action: 'Get upload status', description: 'Check the status of an upload using the request_id' },
+				],
+				default: 'getStatus',
+				displayOptions: { show: { resource: ['monitoring'] } },
+			},
+			// Operations for Users
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{ name: 'Create User', value: 'createUser', action: 'Create user', description: 'Create a new Upload-Post user (profile name)' },
+					{ name: 'Delete User', value: 'deleteUser', action: 'Delete user', description: 'Delete an existing Upload-Post user by profile name' },
+					{ name: 'Generate JWT (for Platform Integration)', value: 'generateJwt', action: 'Generate jwt for platform integration', description: 'Generate a connection URL (JWT) for a profile. Only needed when integrating Upload-Post into your own platform.' },
+					{ name: 'List Users', value: 'listUsers', action: 'List users', description: 'List Upload-Post users (profiles)' },
+					{ name: 'Validate JWT (for Platform Integration)', value: 'validateJwt', action: 'Validate jwt for platform integration', description: 'Validate a connection token from your backend. Only needed for custom platform integration.' },
+				],
+				default: 'listUsers',
+				displayOptions: { show: { resource: ['users'] } },
+			},
+			// (Removed separate JWT resource; JWT operations are under Users below)
 
 		// Common Fields for all operations
 			{
@@ -66,6 +94,12 @@ export class UploadPost implements INodeType {
 				required: true,
 				default: '',
 				description: 'The Profile Name you created in your upload-post.com account. You can find it in the \'Manage Users\' section (e.g., app.upload-post.com/manage-users).',
+				displayOptions: {
+					show: {
+						resource: ['uploads','users'],
+						operation: ['uploadPhotos','uploadVideo','uploadText','generateJwt']
+					}
+				},
 			},
 			{
 				displayName: 'Platform(s)',
@@ -84,6 +118,7 @@ export class UploadPost implements INodeType {
 				],
 				default: [],
 				description: 'Platform(s) to upload to. Supported platforms vary by operation.',
+				displayOptions: { show: { resource: ['uploads'], operation: ['uploadPhotos','uploadVideo','uploadText'] } },
 			},
 			{
 				displayName: 'Pinterest Board ID',
@@ -93,6 +128,7 @@ export class UploadPost implements INodeType {
 				description: 'Target Pinterest board ID. Required when Pinterest is selected.',
 				displayOptions: {
 					show: {
+						resource: ['uploads'],
 						platform: ['pinterest']
 					},
 				},
@@ -104,6 +140,7 @@ export class UploadPost implements INodeType {
 				required: true,
 				default: '',
 				description: 'Title of the post. For Upload Text, this is the main text content. For some video platforms, this acts as a fallback for description if a specific description is not provided.',
+				displayOptions: { show: { resource: ['uploads'], operation: ['uploadPhotos','uploadVideo','uploadText'] } },
 			},
 			{
 				displayName: 'Scheduled Date',
@@ -111,6 +148,179 @@ export class UploadPost implements INodeType {
 				type: 'dateTime',
 				default: '',
 				description: 'Optional scheduling date/time. If set, the API will schedule the publication instead of posting immediately.',
+				displayOptions: { show: { resource: ['uploads'], operation: ['uploadPhotos','uploadVideo','uploadText'] } },
+			},
+			{
+				displayName: 'Upload Asynchronously',
+				name: 'uploadAsync',
+				type: 'boolean',
+				default: true,
+				description: 'Whether to process the upload asynchronously and return immediately. If you set to false but the upload takes longer than 59 seconds, it will automatically switch to asynchronous processing to avoid timeouts. In that case, use the request_id with the Upload Status endpoint to check the upload status and result.',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos','uploadVideo','uploadText']
+					}
+				},
+			},
+			{
+				displayName: 'Wait for Completion',
+				name: 'waitForCompletion',
+				type: 'boolean',
+				default: true,
+				description: 'Whether to poll the status endpoint until completion or timeout when the upload is processed asynchronously',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos','uploadVideo','uploadText']
+					}
+				},
+			},
+			{
+				displayName: 'Poll Interval (Seconds)',
+				name: 'pollInterval',
+				type: 'number',
+				default: 10,
+				description: 'How often to poll the status endpoint when waiting for completion',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos','uploadVideo','uploadText'],
+						waitForCompletion: [true]
+					}
+				},
+			},
+			{
+				displayName: 'Timeout (Seconds)',
+				name: 'pollTimeout',
+				type: 'number',
+				default: 600,
+				description: 'Maximum time to wait before giving up polling',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos','uploadVideo','uploadText'],
+						waitForCompletion: [true]
+					}
+				},
+			},
+			// Fields for Status & History
+			{
+				displayName: 'Request ID',
+				name: 'requestId',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'The request_id returned by an async upload to query its status',
+				displayOptions: {
+					show: {
+						operation: ['getStatus']
+					}
+				},
+			},
+			// Removed platform filter (not supported by API)
+			// Removed status filter (not supported by API)
+			{
+				displayName: 'Page',
+				name: 'historyPage',
+				type: 'number',
+				default: 1,
+				description: 'Page number for pagination',
+				displayOptions: {
+					show: {
+						operation: ['getHistory']
+					}
+				},
+			},
+			{
+				displayName: 'Limit',
+				name: 'historyLimit',
+				type: 'number',
+				default: 20,
+				description: 'Items per page. Can be 20, 50, or 100.',
+				displayOptions: {
+					show: {
+						operation: ['getHistory']
+					}
+				},
+			},
+			// Removed from/to date filters (not supported by API)
+
+			// Create user
+			{
+				displayName: 'New User Identifier',
+				name: 'newUser',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'Profile name to create',
+				displayOptions: {
+					show: { operation: ['createUser'] }
+				},
+			},
+
+			// Delete user
+			{
+				displayName: 'User to Delete',
+				name: 'deleteUserId',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'Profile name to delete',
+				displayOptions: {
+					show: { operation: ['deleteUser'] }
+				},
+			},
+
+			// Generate JWT
+			{
+				displayName: 'Redirect URL',
+				name: 'redirectUrl',
+				type: 'string',
+				default: '',
+				description: 'Optional URL to redirect the user after linking their social account',
+				displayOptions: { show: { operation: ['generateJwt'] } },
+			},
+			{
+				displayName: 'Logo Image URL',
+				name: 'logoImage',
+				type: 'string',
+				default: '',
+				description: 'Optional logo image URL to show on the linking page',
+				displayOptions: { show: { operation: ['generateJwt'] } },
+			},
+			{
+				displayName: 'Redirect Button Text',
+				name: 'redirectButtonText',
+				type: 'string',
+				default: '',
+				description: 'Optional text for the redirect button after linking (default: "Logout connection")',
+				displayOptions: { show: { operation: ['generateJwt'] } },
+			},
+			{
+				displayName: 'Platforms (Optional)',
+				name: 'jwtPlatforms',
+				type: 'multiOptions',
+				options: [
+					{ name: 'Facebook', value: 'facebook' },
+					{ name: 'Instagram', value: 'instagram' },
+					{ name: 'LinkedIn', value: 'linkedin' },
+					{ name: 'Threads', value: 'threads' },
+					{ name: 'TikTok', value: 'tiktok' },
+					{ name: 'X (Twitter)', value: 'x' },
+					{ name: 'YouTube', value: 'youtube' },
+				],
+				default: [],
+				description: 'Optional list of platforms to show for connection. Defaults to all supported platforms.',
+				displayOptions: { show: { operation: ['generateJwt'] } },
+			},
+
+			// Validate JWT
+			{
+				displayName: 'JWT',
+				name: 'jwtToken',
+				type: 'string',
+				typeOptions: { password: true },
+				required: true,
+				default: '',
+				description: 'JWT to validate',
+				displayOptions: { show: { operation: ['validateJwt'] } },
 			},
 
 		// Fields for Upload Photo(s)
@@ -844,26 +1054,39 @@ export class UploadPost implements INodeType {
 
 		for (let i = 0; i < items.length; i++) {
 			const operation = this.getNodeParameter('operation', i) as string;
-			const user = this.getNodeParameter('user', i) as string;
-			let platforms = this.getNodeParameter('platform', i) as string[];
-			const title = this.getNodeParameter('title', i) as string;
+			const isUploadOperation = ['uploadPhotos', 'uploadVideo', 'uploadText'].includes(operation);
+			const needsUser = isUploadOperation || operation === 'generateJwt';
+			const user = needsUser ? (this.getNodeParameter('user', i) as string) : '';
+			let platforms = isUploadOperation ? (this.getNodeParameter('platform', i) as string[]) : [];
+			const title = isUploadOperation ? (this.getNodeParameter('title', i) as string) : '';
 
 			let endpoint = '';
+			let method: 'GET' | 'POST' | 'DELETE' = 'POST';
 			const formData: IDataObject = {};
+			const qs: IDataObject = {};
+			const body: IDataObject = {};
 
-			formData.user = user;
-			formData.title = title;
+			if (isUploadOperation) {
+				formData.user = user;
+				formData.title = title;
 
-			// Optional scheduling
-			const scheduledDate = this.getNodeParameter('scheduledDate', i) as string | undefined;
-			if (scheduledDate) {
-				let normalizedDate = scheduledDate;
-				// If the date string has no timezone info (no trailing Z and no +/- offset), append Z (UTC)
-				const hasTimezone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(normalizedDate);
-				if (!hasTimezone) {
-					normalizedDate = `${normalizedDate}Z`;
+				// Optional scheduling
+				const scheduledDate = this.getNodeParameter('scheduledDate', i) as string | undefined;
+				if (scheduledDate) {
+					let normalizedDate = scheduledDate;
+					// If the date string has no timezone info (no trailing Z and no +/- offset), append Z (UTC)
+					const hasTimezone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(normalizedDate);
+					if (!hasTimezone) {
+						normalizedDate = `${normalizedDate}Z`;
+					}
+					formData.scheduled_date = normalizedDate;
 				}
-				formData.scheduled_date = normalizedDate;
+
+				// Async processing toggle
+				const uploadAsync = this.getNodeParameter('uploadAsync', i) as boolean | undefined;
+				if (uploadAsync !== undefined) {
+					formData.async_upload = String(uploadAsync);
+				}
 			}
 
 			switch (operation) {
@@ -967,18 +1190,63 @@ export class UploadPost implements INodeType {
 					platforms = platforms.filter(p => allowedTextPlatforms.includes(p));
 					formData['platform[]'] = platforms;
 					break;
+				case 'getStatus':
+					method = 'GET';
+					endpoint = '/uploadposts/status';
+					qs.request_id = this.getNodeParameter('requestId', i) as string;
+					break;
+				case 'getHistory':
+					method = 'GET';
+					endpoint = '/uploadposts/history';
+					const historyPage = this.getNodeParameter('historyPage', i) as number | undefined;
+					qs.page = historyPage ?? 1;
+					const historyLimit = this.getNodeParameter('historyLimit', i) as number | undefined;
+					qs.limit = historyLimit ?? 20;
+					break;
+
+				case 'listUsers':
+					method = 'GET';
+					endpoint = '/uploadposts/users';
+					break;
+				case 'createUser':
+					method = 'POST';
+					endpoint = '/uploadposts/users';
+					body.username = this.getNodeParameter('newUser', i) as string;
+					break;
+				case 'deleteUser':
+					method = 'DELETE';
+					endpoint = '/uploadposts/users';
+					body.username = this.getNodeParameter('deleteUserId', i) as string;
+					break;
+				case 'generateJwt':
+					method = 'POST';
+					endpoint = '/uploadposts/users/generate-jwt';
+					body.username = user;
+					const redirectUrl = this.getNodeParameter('redirectUrl', i, '') as string;
+					const logoImage = this.getNodeParameter('logoImage', i, '') as string;
+					const redirectButtonText = this.getNodeParameter('redirectButtonText', i, '') as string;
+					const jwtPlatforms = this.getNodeParameter('jwtPlatforms', i, []) as string[];
+					if (redirectUrl) body.redirect_url = redirectUrl;
+					if (logoImage) body.logo_image = logoImage;
+					if (redirectButtonText) body.redirect_button_text = redirectButtonText;
+					if (Array.isArray(jwtPlatforms) && jwtPlatforms.length > 0) body.platforms = jwtPlatforms;
+					break;
+				case 'validateJwt':
+					method = 'POST';
+					endpoint = '/uploadposts/users/validate-jwt';
+					body.jwt = this.getNodeParameter('jwtToken', i) as string;
+					break;
 			}
-			// Pinterest specific
-			if (platforms.includes('pinterest')) {
+			// Pinterest specific (only when uploading)
+			if (isUploadOperation && platforms.includes('pinterest')) {
 				const pinterestBoardId = this.getNodeParameter('pinterestBoardId', i) as string | undefined;
 				if (pinterestBoardId) formData.pinterest_board_id = pinterestBoardId;
 			}
 
-			// Add platform specific parameters conditionally
-			if (platforms.includes('linkedin')) {
+			// Add platform specifics only for uploads
+			if (isUploadOperation && platforms.includes('linkedin')) {
 				const targetLinkedinPageId = this.getNodeParameter('targetLinkedinPageId', i) as string | undefined;
 				if (targetLinkedinPageId) formData.target_linkedin_page_id = targetLinkedinPageId;
-
 				if (operation === 'uploadPhotos') {
 					const linkedinVisibility = this.getNodeParameter('linkedinVisibility', i) as string;
 					if (linkedinVisibility === 'PUBLIC') {
@@ -992,10 +1260,9 @@ export class UploadPost implements INodeType {
 				}
 			}
 
-			if (platforms.includes('facebook')) {
+			if (isUploadOperation && platforms.includes('facebook')) {
 				const facebookPageId = this.getNodeParameter('facebookPageId', i) as string;
 				formData.facebook_page_id = facebookPageId;
-
 				if (operation === 'uploadVideo') {
 					const facebookVideoDescription = this.getNodeParameter('facebookVideoDescription', i) as string | undefined;
 					const facebookVideoState = this.getNodeParameter('facebookVideoState', i) as string | undefined;
@@ -1007,7 +1274,7 @@ export class UploadPost implements INodeType {
 				}
 			}
 
-			if (platforms.includes('tiktok')) {
+			if (isUploadOperation && platforms.includes('tiktok')) {
 				if (operation === 'uploadPhotos') {
 					const tiktokAutoAddMusic = this.getNodeParameter('tiktokAutoAddMusic', i) as boolean | undefined;
 					const tiktokDisableComment = this.getNodeParameter('tiktokDisableComment', i) as boolean | undefined;
@@ -1048,7 +1315,7 @@ export class UploadPost implements INodeType {
 				}
 			}
 
-			if (platforms.includes('instagram')) {
+			if (isUploadOperation && platforms.includes('instagram')) {
 				const instagramMediaTypeInput = this.getNodeParameter('instagramMediaType', i) as string | undefined;
 				let finalInstagramMediaType = instagramMediaTypeInput;
 
@@ -1082,7 +1349,7 @@ export class UploadPost implements INodeType {
 				}
 			}
 
-			if (platforms.includes('youtube') && operation === 'uploadVideo') {
+			if (isUploadOperation && platforms.includes('youtube') && operation === 'uploadVideo') {
 				const youtubeDescription = this.getNodeParameter('youtubeDescription', i) as string | undefined;
 				const youtubeTagsRaw = this.getNodeParameter('youtubeTags', i) as string | undefined;
 				const youtubeCategoryId = this.getNodeParameter('youtubeCategoryId', i) as string | undefined;
@@ -1124,14 +1391,14 @@ export class UploadPost implements INodeType {
 				}
 			}
 
-			if (platforms.includes('threads')) {
+			if (isUploadOperation && platforms.includes('threads')) {
 				if (operation === 'uploadVideo'){
 					const threadsDescription = this.getNodeParameter('threadsDescription', i) as string | undefined;
 					if (threadsDescription) formData.description = threadsDescription;
 				}
 			}
 
-			if (platforms.includes('x')) {
+			if (isUploadOperation && platforms.includes('x')) {
 				if (operation === 'uploadText') {
 					const xPostUrlText = this.getNodeParameter('xPostUrlText', i) as string | undefined;
 					if (xPostUrlText) formData.post_url = xPostUrlText;
@@ -1170,17 +1437,74 @@ export class UploadPost implements INodeType {
 
 			const options: IRequestOptions = {
 				uri: `https://api.upload-post.com/api${endpoint}`,
-				method: 'POST',
-				headers: {
-					'Authorization': `Apikey ${apiKey}`,
-				},
-				formData,
+				method,
+				headers: {},
 				json: true,
 			};
+
+			// Set auth header according to endpoint
+			if (operation === 'validateJwt') {
+				const jwt = this.getNodeParameter('jwtToken', i) as string;
+				(options.headers as any)['Authorization'] = `Bearer ${jwt}`;
+			} else {
+				(options.headers as any)['Authorization'] = `ApiKey ${apiKey}`;
+			}
+
+			// Decide payload container
+			if (method === 'POST') {
+				// Upload endpoints use multipart form-data, others JSON body
+				if (operation === 'uploadPhotos' || operation === 'uploadVideo' || operation === 'uploadText') {
+					(options as any).formData = formData;
+				} else {
+					(options as any).body = body;
+				}
+			} else if (method === 'GET' || method === 'DELETE') {
+				// Some DELETE endpoints accept JSON in body (delete user), but stick to body for deleteUser
+				if (operation === 'deleteUser') {
+					(options as any).body = body;
+				} else {
+					(options as any).qs = qs;
+				}
+			}
+
 			const responseData = await this.helpers.request(options);
 
+			// Handle optional polling after upload
+			const shouldConsiderPolling = operation === 'uploadPhotos' || operation === 'uploadVideo' || operation === 'uploadText';
+			const waitForCompletion = shouldConsiderPolling ? (this.getNodeParameter('waitForCompletion', i, false) as boolean) : false;
+			let finalData: any = responseData;
+			if (shouldConsiderPolling && waitForCompletion) {
+				const maybeRequestId = (responseData && (responseData as any).request_id) ? (responseData as any).request_id as string : undefined;
+				if (maybeRequestId) {
+					const requestId = maybeRequestId;
+					const pollIntervalSec = this.getNodeParameter('pollInterval', i, 10) as number;
+					const pollTimeoutSec = this.getNodeParameter('pollTimeout', i, 600) as number;
+					const start = Date.now();
+					while (true) {
+						await new Promise(res => (globalThis as any).setTimeout(res, Math.max(1, pollIntervalSec) * 1000));
+						if (Date.now() - start > Math.max(5, pollTimeoutSec) * 1000) {
+							finalData = { success: false, message: 'Polling timed out', request_id: requestId };
+							break;
+						}
+						const statusOptions: IRequestOptions = {
+							uri: `https://api.upload-post.com/api/uploadposts/status`,
+							method: 'GET',
+							headers: { 'Authorization': `ApiKey ${apiKey}` },
+							qs: { request_id: requestId },
+							json: true,
+						};
+						const statusData = await this.helpers.request(statusOptions);
+						finalData = statusData;
+						const statusValue = (statusData && (statusData as any).status) as string | undefined;
+						if ((statusData as any).success === true || (statusValue && ['success','completed','failed','error'].includes(statusValue.toLowerCase()))) {
+							break;
+						}
+					}
+				}
+			}
+
 			returnData.push({
-				json: responseData,
+				json: finalData,
 				pairedItem: {
 					item: i,
 				},
