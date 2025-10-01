@@ -34,15 +34,17 @@ The node provides the following operations grouped for clarity:
 ### Upload Actions
 - **Upload Photo(s)**: Upload one or more photos to supported platforms.
   - Supports file uploads and photo URLs.
-  - Common parameters: User Identifier, Platform(s), Title, Photos (Files or URLs), Caption, Scheduled Date (optional).
+  - Common parameters: User Identifier, Platform(s), Title, Description (optional), Photos (Files or URLs), Scheduled Date (optional).
+  - Title/Description overrides per platform: set `[platform]_title` and `[platform]_description` to override the generic fields (e.g., `instagram_title`, `youtube_description`).
   - Platform-specific parameters are available for LinkedIn, Facebook, TikTok, Instagram, and Pinterest.
-  - Pinterest: requires `Pinterest Board ID` when Pinterest is selected.
+  - Pinterest: requires selecting a Board via the dynamic selector (see Selectors below).
 - **Upload Video**: Upload a single video to supported platforms.
   - Supports file uploads and video URLs.
-  - Common parameters: User Identifier, Platform(s), Title, Video (File or URL), Scheduled Date (optional).
+  - Common parameters: User Identifier, Platform(s), Title, Description (optional), Video (File or URL), Scheduled Date (optional).
+  - Title/Description overrides per platform supported as arriba.
   - YouTube: supports custom thumbnail via URL or binary (YouTube Thumbnail).
   - Platform-specific parameters are available for LinkedIn, Facebook, TikTok, Instagram, YouTube, Threads, X (Twitter), and Pinterest.
-  - Pinterest: requires `Pinterest Board ID` when Pinterest is selected.
+  - Pinterest: requires selecting a Board via the dynamic selector (see Selectors below).
 - **Upload Text**: Upload a text-based post to supported platforms.
   - Common parameters: User Identifier, Platform(s), Title (used as content for most platforms), Scheduled Date (optional).
   - Facebook: supports `Facebook Link` to attach a URL with link preview.
@@ -53,6 +55,19 @@ The node provides the following operations grouped for clarity:
   - Parameters: Request ID.
 - **Get Upload History**: List past uploads.
   - Parameters: Page (default 1), Limit (default 20). Limit can be 20, 50, or 100.
+- **Get Analytics**: Retrieve aggregated analytics for uploads.
+  - Optional filters: From Date, To Date, User Filter, Platforms.
+
+### Scheduled Posts
+- **List Scheduled Posts**: Lists future scheduled jobs.
+- **Cancel Scheduled Post**: Cancels a scheduled job by its Job ID.
+- **Edit Scheduled Post**: Updates a scheduled job (e.g., new scheduled date/time).
+  - Tip: You can schedule any Upload action by providing the `Scheduled Date` during upload.
+
+### Platform Selectors (Dynamic)
+- Facebook Pages: pick the Page from a dynamic list, or enter an ID via expression. Backed by the API endpoint documented at https://docs.upload-post.com/api/get-facebook-pages
+- LinkedIn Pages: pick the Organization Page from a dynamic list, or enter an ID via expression. Backed by the API endpoint documented at https://docs.upload-post.com/api/get-linkedin-pages
+- Pinterest Boards: pick the Board from a dynamic list, or enter an ID via expression. Backed by the API endpoint documented at https://docs.upload-post.com/api/get-pinterest-boards
 
 ### User Actions (incl. JWT for custom platform integration)
 - ⚠️ JWT endpoints are only needed if you integrate Upload-Post into your own platform and want end-users to link their social accounts via your UI.
@@ -76,15 +91,31 @@ Some uploads are processed asynchronously and the API returns immediately with a
 
 You have two ways to handle this in n8n:
 
-1) Built-in node polling (recommended for simplicity)
+1) Best-effort polling inside the node
 - In Upload operations (Photos/Video/Text), enable "Wait for Completion".
-- Configure "Poll Interval (Seconds)" (default 10) and "Timeout (Seconds)" (default 300).
-- The node will poll `GET /api/uploadposts/status?request_id=...` until success/failure or timeout and return the final result.
+- Configure "Poll Interval (Seconds)" (default 10) and "Timeout (Seconds)".
+- The node sleeps between checks (using n8n's `sleep`) and calls `GET /api/uploadposts/status?request_id=...` until success/failure or timeout.
+- Note: This does not guarantee completion in hosted environments with strict execution limits.
 
-2) Workflow-level polling (more control)
+2) Workflow-level polling (recommended for reliability)
 - Use the Upload operation, read `request_id` from its output.
 - Add a Wait node (e.g., 10s), then call "Get Upload Status" passing the `request_id`.
 - Loop with an IF node until the status is final (success/failed) or a max attempts limit is reached.
+
+### Notable platform-specific options
+- Facebook: Media Type (Reels/Stories); Page picker; optional link for Text.
+- LinkedIn: Visibility; Organization picker; optional description override.
+- TikTok: Post Mode (Direct Post / Media Upload), privacy, duet/comment/stitch toggles.
+- Instagram: Media type (Image/Stories/Reels), video options (cover, audio, tags, etc.).
+- YouTube: Thumbnail via URL or file; description override; tags/category/privacy and related flags.
+- Threads: Description override for video; thread-related handling on backend.
+- Pinterest: Board picker; optional link; cover image options (URL/base64/key frame).
+
+### Title & Description overrides
+- `Title / Main Content`: generic title used across platforms.
+- Platform title overrides: `[platform]_title` (e.g., `x_title`, `pinterest_title`).
+- `Description (Optional)`: generic description used across platforms when supported.
+- Platform description overrides: `[platform]_description` (e.g., `youtube_description`, `linkedin_description`).
 
 Related docs:
 - Profiles & JWT reference (context): [User Profiles API](https://docs.upload-post.com/api/user-profiles#create-user-profile)

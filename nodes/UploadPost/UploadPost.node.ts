@@ -2,11 +2,14 @@ import { Buffer } from 'buffer';
 import {
 	IDataObject,
 	IExecuteFunctions,
+	ILoadOptionsFunctions,
 	INodeExecutionData,
+	INodePropertyOptions,
 	INodeType,
 	INodeTypeDescription,
 	IRequestOptions,
-	NodeConnectionType
+	NodeConnectionType,
+	sleep
 } from 'n8n-workflow';
 
 export class UploadPost implements INodeType {
@@ -62,8 +65,12 @@ export class UploadPost implements INodeType {
 				type: 'options',
 				noDataExpression: true,
 				options: [
+						{ name: 'Cancel Scheduled Post', value: 'cancelScheduled', action: 'Cancel scheduled post', description: 'Cancel a scheduled post by its job ID' },
+						{ name: 'Edit Scheduled Post', value: 'editScheduled', action: 'Edit scheduled post', description: 'Edit schedule details (like date/time) by job ID' },
+						{ name: 'Get Analytics', value: 'getAnalytics', action: 'Get analytics', description: 'Retrieve aggregated analytics for uploads' },
 					{ name: 'Get Upload History', value: 'getHistory', action: 'Get upload history', description: 'List past uploads with optional filters' },
 					{ name: 'Get Upload Status', value: 'getStatus', action: 'Get upload status', description: 'Check the status of an upload using the request_id' },
+						{ name: 'List Scheduled Posts', value: 'listScheduled', action: 'List scheduled posts', description: 'List your scheduled (future) posts' },
 				],
 				default: 'getStatus',
 				displayOptions: { show: { resource: ['monitoring'] } },
@@ -121,19 +128,6 @@ export class UploadPost implements INodeType {
 				displayOptions: { show: { resource: ['uploads'], operation: ['uploadPhotos','uploadVideo','uploadText'] } },
 			},
 			{
-				displayName: 'Pinterest Board ID',
-				name: 'pinterestBoardId',
-				type: 'string',
-				default: '',
-				description: 'Target Pinterest board ID. Required when Pinterest is selected.',
-				displayOptions: {
-					show: {
-						resource: ['uploads'],
-						platform: ['pinterest']
-					},
-				},
-			},
-			{
 				displayName: 'Title / Main Content',
 				name: 'title',
 				type: 'string',
@@ -141,6 +135,171 @@ export class UploadPost implements INodeType {
 				default: '',
 				description: 'Title of the post. For Upload Text, this is the main text content. For some video platforms, this acts as a fallback for description if a specific description is not provided.',
 				displayOptions: { show: { resource: ['uploads'], operation: ['uploadPhotos','uploadVideo','uploadText'] } },
+			},
+				// Platform-specific Title Overrides (appear when the platform is selected)
+				{
+					displayName: 'Instagram Title (Override)',
+					name: 'instagramTitle',
+					type: 'string',
+					default: '',
+					description: 'Optional override for Instagram title',
+					displayOptions: { show: { operation: ['uploadPhotos','uploadVideo','uploadText'], platform: ['instagram'] } },
+				},
+				{
+					displayName: 'Facebook Title (Override)',
+					name: 'facebookTitle',
+					type: 'string',
+					default: '',
+					description: 'Optional override for Facebook title',
+					displayOptions: { show: { operation: ['uploadPhotos','uploadVideo','uploadText'], platform: ['facebook'] } },
+				},
+				{
+					displayName: 'TikTok Title (Override)',
+					name: 'tiktokTitle',
+					type: 'string',
+					default: '',
+					description: 'Optional override for TikTok title',
+					displayOptions: { show: { operation: ['uploadPhotos','uploadVideo','uploadText'], platform: ['tiktok'] } },
+				},
+				{
+					displayName: 'LinkedIn Title (Override)',
+					name: 'linkedinTitle',
+					type: 'string',
+					default: '',
+					description: 'Optional override for LinkedIn title',
+					displayOptions: { show: { operation: ['uploadPhotos','uploadVideo','uploadText'], platform: ['linkedin'] } },
+				},
+				{
+					displayName: 'X Title (Override)',
+					name: 'xTitle',
+					type: 'string',
+					default: '',
+					description: 'Optional override for X title',
+					displayOptions: { show: { operation: ['uploadPhotos','uploadVideo','uploadText'], platform: ['x'] } },
+				},
+				{
+					displayName: 'YouTube Title (Override)',
+					name: 'youtubeTitle',
+					type: 'string',
+					default: '',
+					description: 'Optional override for YouTube title',
+					displayOptions: { show: { operation: ['uploadPhotos','uploadVideo','uploadText'], platform: ['youtube'] } },
+				},
+				{
+					displayName: 'Pinterest Title (Override)',
+					name: 'pinterestTitle',
+					type: 'string',
+					default: '',
+					description: 'Optional override for Pinterest title',
+					displayOptions: { show: { operation: ['uploadPhotos','uploadVideo','uploadText'], platform: ['pinterest'] } },
+				},
+
+
+			// Fields for Upload Photo(s)
+			{
+				displayName: 'Photos (Files or URLs)',
+				name: 'photos',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'Provide photo files or URLs as a comma-separated list (e.g., data,https://example.com/image.jpg,otherImage). For files, enter the binary property name (e.g., data, myImage). For URLs, provide direct HTTP/HTTPS URLs.',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos'],
+					},
+				},
+			},
+			{
+				displayName: 'Description (Optional)',
+				name: 'description',
+				type: 'string',
+				default: '',
+				description: 'Generic description to use across platforms when supported. Platform-specific overrides below take precedence.',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos', 'uploadVideo']
+					}
+				},
+			},
+			// Platform-specific Description Overrides
+			{
+				displayName: 'Instagram Description (Override)',
+				name: 'instagramDescription',
+				type: 'string',
+				default: '',
+				description: 'Optional description override for Instagram',
+				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['instagram'] } },
+			},
+			{
+				displayName: 'Facebook Description (Override)',
+				name: 'facebookDescription',
+				type: 'string',
+				default: '',
+				description: 'Optional description override for Facebook',
+				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['facebook'] } },
+			},
+			{
+				displayName: 'TikTok Description (Override)',
+				name: 'tiktokDescription',
+				type: 'string',
+				default: '',
+				description: 'Optional description override for TikTok',
+				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['tiktok'] } },
+			},
+			{
+				displayName: 'LinkedIn Description (Override)',
+				name: 'linkedinDescription',
+				type: 'string',
+				default: '',
+				description: 'Optional description override for LinkedIn',
+				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['linkedin'] } },
+			},
+			{
+				displayName: 'X Description (Override)',
+				name: 'xDescription',
+				type: 'string',
+				default: '',
+				description: 'Optional description override for X',
+				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['x'] } },
+			},
+			{
+				displayName: 'YouTube Description (Override)',
+				name: 'youtubeDescription',
+				type: 'string',
+				default: '',
+				description: 'Optional description override for YouTube',
+				displayOptions: { show: { operation: ['uploadVideo'], platform: ['youtube'] } },
+			},
+			{
+				displayName: 'Pinterest Description (Override)',
+				name: 'pinterestDescription',
+				type: 'string',
+				default: '',
+				description: 'Optional description override for Pinterest',
+				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['pinterest'] } },
+			},
+			{
+				displayName: 'Threads Description (Override)',
+				name: 'threadsDescription',
+				type: 'string',
+				default: '',
+				description: 'Optional description override for Threads',
+				displayOptions: { show: { operation: ['uploadVideo'], platform: ['threads'] } },
+			},
+
+		// Fields for Upload Video
+			{
+				displayName: 'Video (File or URL)',
+				name: 'video',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'The video file to upload or a video URL. For files, enter the binary property name (e.g., data).',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+					},
+				},
 			},
 			{
 				displayName: 'Scheduled Date',
@@ -166,8 +325,8 @@ export class UploadPost implements INodeType {
 				displayName: 'Wait for Completion',
 				name: 'waitForCompletion',
 				type: 'boolean',
-				default: true,
-				description: 'Whether to poll the status endpoint until completion or timeout when the upload is processed asynchronously',
+				default: false,
+				description: 'Whether to perform best-effort sleeping between status checks within this node. Not guaranteed to finish; for reliable long polling use a separate Wait node plus Get Upload Status.',
 				displayOptions: {
 					show: {
 						operation: ['uploadPhotos','uploadVideo','uploadText']
@@ -179,7 +338,7 @@ export class UploadPost implements INodeType {
 				name: 'pollInterval',
 				type: 'number',
 				default: 10,
-				description: 'How often to poll the status endpoint when waiting for completion',
+				description: 'Sleep interval between status checks when waiting for completion',
 				displayOptions: {
 					show: {
 						operation: ['uploadPhotos','uploadVideo','uploadText'],
@@ -192,7 +351,7 @@ export class UploadPost implements INodeType {
 				name: 'pollTimeout',
 				type: 'number',
 				default: 600,
-				description: 'Maximum time to wait before giving up polling',
+				description: 'Maximum time to sleep-and-check before giving up inside this node',
 				displayOptions: {
 					show: {
 						operation: ['uploadPhotos','uploadVideo','uploadText'],
@@ -239,6 +398,47 @@ export class UploadPost implements INodeType {
 						operation: ['getHistory']
 					}
 				},
+			},
+				// Scheduled Posts fields
+				{
+					displayName: 'Job ID',
+					name: 'scheduleJobId',
+					type: 'string',
+					default: '',
+					description: 'Scheduled job identifier',
+					displayOptions: { show: { operation: ['cancelScheduled','editScheduled'] } },
+				},
+				// Analytics fields
+				{
+					displayName: 'Profile Username',
+					name: 'analyticsProfileUsername',
+					type: 'string',
+					required: true,
+					default: '',
+					description: 'Profile username to fetch analytics for',
+					displayOptions: { show: { operation: ['getAnalytics'] } },
+				},
+				{
+					displayName: 'New Scheduled Date',
+					name: 'newScheduledDate',
+					type: 'dateTime',
+					default: '',
+					description: 'New scheduled date/time for the post',
+					displayOptions: { show: { operation: ['editScheduled'] } },
+				},
+				{
+					displayName: 'Platforms (Optional)',
+					name: 'analyticsPlatforms',
+					type: 'multiOptions',
+					options: [
+						{ name: 'Instagram', value: 'instagram' },
+						{ name: 'LinkedIn', value: 'linkedin' },
+						{ name: 'Facebook', value: 'facebook' },
+						{ name: 'X (Twitter)', value: 'x' },
+					],
+					default: [],
+					description: 'Platforms to fetch analytics for (comma-joined in request)',
+					displayOptions: { show: { operation: ['getAnalytics'] } },
 			},
 			// Removed from/to date filters (not supported by API)
 
@@ -323,48 +523,6 @@ export class UploadPost implements INodeType {
 				displayOptions: { show: { operation: ['validateJwt'] } },
 			},
 
-		// Fields for Upload Photo(s)
-			{
-				displayName: 'Photos (Files or URLs)',
-				name: 'photos',
-				type: 'string',
-				required: true,
-				default: '',
-				description: 'Provide photo files or URLs as a comma-separated list (e.g., data,https://example.com/image.jpg,otherImage). For files, enter the binary property name (e.g., data, myImage). For URLs, provide direct HTTP/HTTPS URLs.',
-				displayOptions: {
-					show: {
-						operation: ['uploadPhotos'],
-					},
-				},
-			},
-			{
-				displayName: 'Caption (Photo/Video Commentary)',
-				name: 'caption',
-				type: 'string',
-				default: '',
-				description: 'General caption/commentary for Photo or Video posts. For some video platforms, a specific \'Description\' field might be used instead (see platform-specific options). Not used for Upload Text.',
-				displayOptions: {
-					show: {
-						operation: ['uploadPhotos', 'uploadVideo'],
-					},
-				},
-			},
-
-		// Fields for Upload Video
-			{
-				displayName: 'Video (File or URL)',
-				name: 'video',
-				type: 'string',
-				required: true,
-				default: '',
-				description: 'The video file to upload or a video URL. For files, enter the binary property name (e.g., data).',
-				displayOptions: {
-					show: {
-						operation: ['uploadVideo'],
-					},
-				},
-			},
-
 		// ----- LinkedIn Specific Parameters ----- 
 			{
 				displayName: 'LinkedIn Visibility',
@@ -386,16 +544,17 @@ export class UploadPost implements INodeType {
 				},
 			},
 			{
-				displayName: 'Target LinkedIn Page ID',
+				displayName: 'Target LinkedIn Page Name or ID',
 				name: 'targetLinkedinPageId',
-				type: 'string',
+				type: 'options',
 				default: '',
-				description: 'LinkedIn page ID to upload to an organization (optional). Used for Photos, Video, and Text operations.',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getLinkedinPages' },
 				displayOptions: {
 					show: {
 						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
 						platform: ['linkedin']
-					},
+					}
 				},
 			},
 			{
@@ -414,17 +573,18 @@ export class UploadPost implements INodeType {
 
 		// ----- Facebook Specific Parameters ----- 
 			{
-				displayName: 'Facebook Page ID',
+				displayName: 'Facebook Page Name or ID',
 				name: 'facebookPageId',
-				type: 'string',
+				type: 'options',
 				required: true,
 				default: '',
-				description: 'Facebook Page ID. Required for Photos, Video, and Text operations.',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getFacebookPages' },
 				displayOptions: {
 					show: {
 						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
 						platform: ['facebook']
-					},
+					}
 				},
 			},
 			{
@@ -464,6 +624,23 @@ export class UploadPost implements INodeType {
 				],
 				default: 'PUBLISHED',
 				description: 'State for Facebook Video (DRAFT, PUBLISHED, SCHEDULED). Not for Photos/Text.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['facebook']
+					},
+				},
+			},
+			{
+				displayName: 'Facebook Media Type (Video)',
+				name: 'facebookMediaType',
+				type: 'options',
+				options: [
+					{ name: 'Reels', value: 'REELS' },
+					{ name: 'Stories', value: 'STORIES' },
+				],
+				default: 'REELS',
+				description: 'Choose whether to post as Reels or Stories for Facebook video',
 				displayOptions: {
 					show: {
 						operation: ['uploadVideo'],
@@ -672,7 +849,24 @@ export class UploadPost implements INodeType {
 					show: {
 						operation: ['uploadVideo'],
 						platform: ['tiktok']
-					},
+					}
+				},
+			},
+			{
+				displayName: 'TikTok Post Mode (Video)',
+				name: 'tiktokPostMode',
+				type: 'options',
+				options: [
+					{ name: 'Direct Post', value: 'DIRECT_POST' },
+					{ name: 'Media Upload (Inbox)', value: 'MEDIA_UPLOAD' },
+				],
+				default: 'DIRECT_POST',
+				description: 'Choose TikTok posting mode for video',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['tiktok']
+					}
 				},
 			},
 
@@ -783,7 +977,7 @@ export class UploadPost implements INodeType {
 					show: {
 						operation: ['uploadVideo'],
 						platform: ['instagram']
-					},
+					}
 				},
 			},
 
@@ -912,6 +1106,94 @@ export class UploadPost implements INodeType {
 						operation: ['uploadVideo'],
 						platform: ['youtube']
 					},
+				},
+			},
+
+			// ----- Pinterest Specific Parameters (Video Only) -----
+
+			{
+				displayName: 'Pinterest Board Name or ID',
+				name: 'pinterestBoardId',
+				type: 'options',
+				default: '',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getPinterestBoards' },
+				displayOptions: {
+					show: {
+						resource: ['uploads'],
+						platform: ['pinterest']
+					},
+				},
+			},
+			{
+				displayName: 'Pinterest Link (Photo/Video)',
+				name: 'pinterestLink',
+				type: 'string',
+				default: '',
+				description: 'Optional link to attach to the Pinterest pin',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos', 'uploadVideo'],
+						platform: ['pinterest']
+					}
+				},
+			},
+			{
+				displayName: 'Pinterest Cover Image URL (Video)',
+				name: 'pinterestCoverImageUrl',
+				type: 'string',
+				default: '',
+				description: 'Optional cover image URL for Pinterest video. If provided, overrides other cover options.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['pinterest']
+					}
+				},
+			},
+			{
+				displayName: 'Pinterest Cover Image Content Type (Video)',
+				name: 'pinterestCoverImageContentType',
+				type: 'options',
+				options: [
+					{ name: 'JPEG', value: 'image/jpeg' },
+					{ name: 'PNG', value: 'image/png' },
+					{ name: 'GIF', value: 'image/gif' },
+					{ name: 'BMP', value: 'image/bmp' },
+				],
+				default: 'image/jpeg',
+				description: 'MIME type for the cover image when providing raw base64 data',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['pinterest']
+					}
+				},
+			},
+			{
+				displayName: 'Pinterest Cover Image Data (Base64, Video)',
+				name: 'pinterestCoverImageData',
+				type: 'string',
+				default: '',
+				description: 'Base64-encoded image bytes for the cover image. Used if URL is not provided.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['pinterest']
+					}
+				},
+			},
+			{
+				displayName: 'Pinterest Cover Image Key Frame Time (MS, Video)',
+				name: 'pinterestCoverImageKeyFrameTime',
+				type: 'number',
+				default: 0,
+				description: 'Key frame time to use as the cover image if no image is provided',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['pinterest']
+					}
 				},
 			},
 
@@ -1045,7 +1327,116 @@ export class UploadPost implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'X Long Text as Single Post',
+				name: 'xLongTextAsPost',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to post long text as a single post instead of splitting into a thread (if supported)',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo', 'uploadText'],
+						platform: ['x']
+					},
+				},
+			},
+
+			{
+				displayName: 'Description (Optional)',
+				name: 'description',
+				type: 'string',
+				default: '',
+				description: 'Generic description to use across platforms when supported. Platform-specific overrides below take precedence.',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos', 'uploadVideo']
+					}
+				},
+			},
+			// Platform-specific Description Overrides
+			{
+				displayName: 'LinkedIn Description (Override)',
+				name: 'linkedinDescription',
+				type: 'string',
+				default: '',
+				description: 'Optional description override for LinkedIn',
+				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['linkedin'] } },
+			},
+			{
+				displayName: 'YouTube Description (Override)',
+				name: 'youtubeDescription',
+				type: 'string',
+				default: '',
+				description: 'Optional description override for YouTube',
+				displayOptions: { show: { operation: ['uploadVideo'], platform: ['youtube'] } },
+			},
+			{
+				displayName: 'Threads Description (Override)',
+				name: 'threadsDescription',
+				type: 'string',
+				default: '',
+				description: 'Optional description override for Threads',
+				displayOptions: { show: { operation: ['uploadVideo'], platform: ['threads'] } },
+			},
+
 		],
+	};
+
+	// Load options methods for dynamic selectors
+	methods = {
+		loadOptions: {
+			async getFacebookPages(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const credentials = await this.getCredentials('uploadPostApi');
+				const apiKey = credentials.apiKey as string;
+				const profile = (this.getCurrentNodeParameter('user') as string | undefined) || '';
+				const qs: IDataObject = {};
+				if (profile) qs.profile = profile;
+				const options: IRequestOptions = {
+					uri: 'https://api.upload-post.com/api/uploadposts/facebook/pages',
+					method: 'GET',
+					headers: { Authorization: `ApiKey ${apiKey}` },
+					qs,
+					json: true,
+				};
+				const resp = await this.helpers.request(options);
+				const pages = (resp && (resp.pages || resp.data || [])) as Array<{ id: string; name?: string }>;
+				return (pages || []).map(p => ({ name: p.name ? `${p.name} (${p.id})` : p.id, value: p.id }));
+			},
+			async getLinkedinPages(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const credentials = await this.getCredentials('uploadPostApi');
+				const apiKey = credentials.apiKey as string;
+				const profile = (this.getCurrentNodeParameter('user') as string | undefined) || '';
+				const qs: IDataObject = {};
+				if (profile) qs.profile = profile;
+				const options: IRequestOptions = {
+					uri: 'https://api.upload-post.com/api/uploadposts/linkedin/pages',
+					method: 'GET',
+					headers: { Authorization: `ApiKey ${apiKey}` },
+					qs,
+					json: true,
+				};
+				const resp = await this.helpers.request(options);
+				const pages = (resp && (resp.pages || resp.data || [])) as Array<{ id: string; name?: string }>;
+				return (pages || []).map(p => ({ name: p.name ? `${p.name} (${p.id})` : p.id, value: p.id }));
+			},
+			async getPinterestBoards(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const credentials = await this.getCredentials('uploadPostApi');
+				const apiKey = credentials.apiKey as string;
+				const profile = (this.getCurrentNodeParameter('user') as string | undefined) || '';
+				const qs: IDataObject = {};
+				if (profile) qs.profile = profile;
+				const options: IRequestOptions = {
+					uri: 'https://api.upload-post.com/api/uploadposts/pinterest/boards',
+					method: 'GET',
+					headers: { Authorization: `ApiKey ${apiKey}` },
+					qs,
+					json: true,
+				};
+				const resp = await this.helpers.request(options);
+				const boards = (resp && (resp.boards || resp.data || [])) as Array<{ id: string; name?: string }>;
+				return (boards || []).map(b => ({ name: b.name ? `${b.name} (${b.id})` : b.id, value: b.id }));
+			},
+		},
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
@@ -1089,10 +1480,110 @@ export class UploadPost implements INodeType {
 				}
 			}
 
+			// Apply platform-specific title overrides when provided
+			if (isUploadOperation) {
+				try {
+					if (platforms.includes('instagram')) {
+						const instagramTitle = this.getNodeParameter('instagramTitle', i, '') as string;
+						if (instagramTitle) (formData as any).instagram_title = instagramTitle;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('facebook')) {
+						const facebookTitle = this.getNodeParameter('facebookTitle', i, '') as string;
+						if (facebookTitle) (formData as any).facebook_title = facebookTitle;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('tiktok')) {
+						const tiktokTitle = this.getNodeParameter('tiktokTitle', i, '') as string;
+						if (tiktokTitle) (formData as any).tiktok_title = tiktokTitle;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('linkedin')) {
+						const linkedinTitle = this.getNodeParameter('linkedinTitle', i, '') as string;
+						if (linkedinTitle) (formData as any).linkedin_title = linkedinTitle;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('x')) {
+						const xTitle = this.getNodeParameter('xTitle', i, '') as string;
+						if (xTitle) (formData as any).x_title = xTitle;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('youtube')) {
+						const youtubeTitle = this.getNodeParameter('youtubeTitle', i, '') as string;
+						if (youtubeTitle) (formData as any).youtube_title = youtubeTitle;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('pinterest')) {
+						const pinterestTitle = this.getNodeParameter('pinterestTitle', i, '') as string;
+						if (pinterestTitle) (formData as any).pinterest_title = pinterestTitle;
+					}
+				} catch {}
+			}
+
+				// Apply generic description and platform-specific description overrides
+			if (isUploadOperation) {
+				const genericDescription = this.getNodeParameter('description', i, '') as string;
+				if (genericDescription) (formData as any).description = genericDescription;
+				try {
+					if (platforms.includes('linkedin')) {
+						const linkedinDescription = this.getNodeParameter('linkedinDescription', i, '') as string;
+						if (linkedinDescription) (formData as any).linkedin_description = linkedinDescription;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('youtube')) {
+						const youtubeDescription = this.getNodeParameter('youtubeDescription', i, '') as string;
+						if (youtubeDescription) (formData as any).youtube_description = youtubeDescription;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('threads')) {
+						const threadsDescription = this.getNodeParameter('threadsDescription', i, '') as string;
+						if (threadsDescription) (formData as any).threads_description = threadsDescription;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('facebook')) {
+						const facebookDescription = this.getNodeParameter('facebookDescription', i, '') as string;
+						if (facebookDescription) (formData as any).facebook_description = facebookDescription;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('instagram')) {
+						const instagramDescription = this.getNodeParameter('instagramDescription', i, '') as string;
+						if (instagramDescription) (formData as any).instagram_description = instagramDescription;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('tiktok')) {
+						const tiktokDescription = this.getNodeParameter('tiktokDescription', i, '') as string;
+						if (tiktokDescription) (formData as any).tiktok_description = tiktokDescription;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('x')) {
+						const xDescription = this.getNodeParameter('xDescription', i, '') as string;
+						if (xDescription) (formData as any).x_description = xDescription;
+					}
+				} catch {}
+				try {
+					if (platforms.includes('pinterest')) {
+						const pinterestDescription = this.getNodeParameter('pinterestDescription', i, '') as string;
+						if (pinterestDescription) (formData as any).pinterest_description = pinterestDescription;
+					}
+				} catch {}
+			}
+
 			switch (operation) {
 				case 'uploadPhotos':
 					endpoint = '/upload_photos';
-					const photoCaption = this.getNodeParameter('caption', i) as string | undefined;
+					// caption removed in favor of description
 
 					// Handle 'photos' parameter which can be string or string[]
 					let photosInput = this.getNodeParameter('photos', i, []) as string | string[];
@@ -1109,7 +1600,7 @@ export class UploadPost implements INodeType {
 						photosToProcess = photosInput.filter(item => typeof item === 'string' && item.trim() !== '');
 					}
 
-					const allowedPhotoPlatforms = ['tiktok', 'instagram', 'linkedin', 'facebook', 'x', 'threads'];
+					const allowedPhotoPlatforms = ['tiktok', 'instagram', 'linkedin', 'facebook', 'x', 'threads', 'pinterest'];
 					platforms = platforms.filter(p => allowedPhotoPlatforms.includes(p));
 					formData['platform[]'] = platforms;
 
@@ -1148,15 +1639,18 @@ export class UploadPost implements INodeType {
 							formData['photos[]'] = photoArray;
 						}
 					}
-					if (photoCaption) formData.caption = photoCaption;
+					// description handled above; no caption
 					break;
 				case 'uploadVideo':
 					endpoint = '/upload';
 					const videoInput = this.getNodeParameter('video', i) as string;
+					// caption removed in favor of description
 					
 					const allowedVideoPlatforms = ['tiktok', 'instagram', 'linkedin', 'youtube', 'facebook', 'x', 'threads', 'pinterest'];
 					platforms = platforms.filter(p => allowedVideoPlatforms.includes(p));
 					formData['platform[]'] = platforms;
+
+					// description handled above; no caption
 
 					if (videoInput) {
 						if (videoInput.toLowerCase().startsWith('http://') || videoInput.toLowerCase().startsWith('https://')) {
@@ -1203,6 +1697,42 @@ export class UploadPost implements INodeType {
 					const historyLimit = this.getNodeParameter('historyLimit', i) as number | undefined;
 					qs.limit = historyLimit ?? 20;
 					break;
+				case 'getAnalytics':
+					method = 'GET';
+					{
+						const analyticsPlatforms = this.getNodeParameter('analyticsPlatforms', i, []) as string[];
+						const profileUsername = this.getNodeParameter('analyticsProfileUsername', i) as string;
+						endpoint = `/analytics/${encodeURIComponent(profileUsername)}`;
+						if (Array.isArray(analyticsPlatforms) && analyticsPlatforms.length > 0) {
+							(qs as any).platforms = analyticsPlatforms.join(',');
+						}
+					}
+					break;
+				case 'listScheduled':
+					method = 'GET';
+					endpoint = '/uploadposts/schedule';
+					break;
+				case 'cancelScheduled':
+					method = 'DELETE';
+					{
+						const jobId = this.getNodeParameter('scheduleJobId', i) as string;
+						endpoint = `/uploadposts/schedule/${jobId}`;
+					}
+					break;
+				case 'editScheduled':
+					method = 'POST';
+					{
+						const jobId = this.getNodeParameter('scheduleJobId', i) as string;
+						endpoint = `/uploadposts/schedule/${jobId}`;
+						const newScheduledDate = this.getNodeParameter('newScheduledDate', i, '') as string;
+						if (newScheduledDate) {
+							let normalizedDate = newScheduledDate;
+							const hasTimezone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(normalizedDate);
+							if (!hasTimezone) normalizedDate = `${normalizedDate}Z`;
+							(body as any).scheduled_date = normalizedDate;
+						}
+					}
+					break;
 
 				case 'listUsers':
 					method = 'GET';
@@ -1241,12 +1771,41 @@ export class UploadPost implements INodeType {
 			if (isUploadOperation && platforms.includes('pinterest')) {
 				const pinterestBoardId = this.getNodeParameter('pinterestBoardId', i) as string | undefined;
 				if (pinterestBoardId) formData.pinterest_board_id = pinterestBoardId;
+					const pinterestLink = this.getNodeParameter('pinterestLink', i) as string | undefined;
+					if (pinterestLink) formData.pinterest_link = pinterestLink;
+					if (operation === 'uploadVideo') {
+						const pinterestCoverImageUrl = this.getNodeParameter('pinterestCoverImageUrl', i) as string | undefined;
+						const pinterestCoverImageContentType = this.getNodeParameter('pinterestCoverImageContentType', i) as string | undefined;
+						const pinterestCoverImageData = this.getNodeParameter('pinterestCoverImageData', i) as string | undefined;
+						const pinterestCoverImageKeyFrameTime = this.getNodeParameter('pinterestCoverImageKeyFrameTime', i) as number | undefined;
+						const pinterestLink = this.getNodeParameter('pinterestLink', i) as string | undefined;
+
+						if (pinterestCoverImageUrl) {
+							formData.pinterest_cover_image_url = pinterestCoverImageUrl;
+						} else {
+							if (pinterestCoverImageContentType && pinterestCoverImageData) {
+								formData.pinterest_cover_image_content_type = pinterestCoverImageContentType;
+								formData.pinterest_cover_image_data = pinterestCoverImageData;
+							} else if (pinterestCoverImageKeyFrameTime !== undefined) {
+								formData.pinterest_cover_image_key_frame_time = pinterestCoverImageKeyFrameTime;
+							}
+						}
+						if (pinterestLink) formData.pinterest_link = pinterestLink;
+					}
 			}
 
 			// Add platform specifics only for uploads
 			if (isUploadOperation && platforms.includes('linkedin')) {
 				const targetLinkedinPageId = this.getNodeParameter('targetLinkedinPageId', i) as string | undefined;
-				if (targetLinkedinPageId) formData.target_linkedin_page_id = targetLinkedinPageId;
+				if (targetLinkedinPageId) {
+					// Extract only the numeric ID from a URN like "urn:li:organization:108870530"
+					const match = targetLinkedinPageId.match(/(\d+)$/);
+					if (match) {
+						formData.target_linkedin_page_id = match[1];
+					} else {
+						formData.target_linkedin_page_id = targetLinkedinPageId; // fallback, in case it's already just the ID
+					}
+				}
 				if (operation === 'uploadPhotos') {
 					const linkedinVisibility = this.getNodeParameter('linkedinVisibility', i) as string;
 					if (linkedinVisibility === 'PUBLIC') {
@@ -1254,9 +1813,8 @@ export class UploadPost implements INodeType {
 					}
 				} else if (operation === 'uploadVideo') {
 					const linkedinVisibility = this.getNodeParameter('linkedinVisibility', i) as string;
-					const linkedinDescription = this.getNodeParameter('linkedinDescription', i) as string | undefined;
 					formData.visibility = linkedinVisibility;
-					if (linkedinDescription) formData.description = linkedinDescription;
+					// description handled by generic/override block above
 				}
 			}
 
@@ -1264,10 +1822,13 @@ export class UploadPost implements INodeType {
 				const facebookPageId = this.getNodeParameter('facebookPageId', i) as string;
 				formData.facebook_page_id = facebookPageId;
 				if (operation === 'uploadVideo') {
-					const facebookVideoDescription = this.getNodeParameter('facebookVideoDescription', i) as string | undefined;
 					const facebookVideoState = this.getNodeParameter('facebookVideoState', i) as string | undefined;
-					if (facebookVideoDescription) formData.description = facebookVideoDescription;
 					if (facebookVideoState) formData.video_state = facebookVideoState;
+						// Facebook media type (REELS or STORIES)
+						try {
+							const facebookMediaType = this.getNodeParameter('facebookMediaType', i) as string | undefined;
+							if (facebookMediaType) formData.facebook_media_type = facebookMediaType;
+						} catch {}
 				} else if (operation === 'uploadText') {
 					const facebookLink = this.getNodeParameter('facebookLink', i) as string | undefined;
 					if (facebookLink) formData.link = facebookLink;
@@ -1288,7 +1849,7 @@ export class UploadPost implements INodeType {
 					if (tiktokBrandedContentPhoto !== undefined) formData.branded_content = String(tiktokBrandedContentPhoto);
 					if (tiktokDiscloseCommercialPhoto !== undefined) formData.disclose_commercial = String(tiktokDiscloseCommercialPhoto);
 					if (tiktokPhotoCoverIndex !== undefined) formData.photo_cover_index = tiktokPhotoCoverIndex;
-					if (tiktokPhotoDescription) formData.description = tiktokPhotoDescription;
+						if (tiktokPhotoDescription && (formData as any).description === undefined) (formData as any).description = tiktokPhotoDescription;
 					
 				} else if (operation === 'uploadVideo') {
 					const tiktokPrivacyLevel = this.getNodeParameter('tiktokPrivacyLevel', i) as string | undefined;
@@ -1301,6 +1862,7 @@ export class UploadPost implements INodeType {
 					const tiktokBrandedContentVideo = this.getNodeParameter('tiktokBrandedContentVideo', i) as boolean | undefined;
 					const tiktokBrandOrganicToggle = this.getNodeParameter('tiktokBrandOrganicToggle', i) as boolean | undefined;
 					const tiktokIsAigc = this.getNodeParameter('tiktokIsAigc', i) as boolean | undefined;
+					const tiktokPostMode = this.getNodeParameter('tiktokPostMode', i) as string | undefined;
 
 					if (tiktokPrivacyLevel) formData.privacy_level = tiktokPrivacyLevel;
 					if (tiktokDisableDuet !== undefined) formData.disable_duet = String(tiktokDisableDuet);
@@ -1312,6 +1874,7 @@ export class UploadPost implements INodeType {
 					if (tiktokBrandedContentVideo !== undefined) formData.branded_content = String(tiktokBrandedContentVideo);
 					if (tiktokBrandOrganicToggle !== undefined) formData.brand_organic_toggle = String(tiktokBrandOrganicToggle);
 					if (tiktokIsAigc !== undefined) formData.is_aigc = String(tiktokIsAigc);
+					if (tiktokPostMode) formData.post_mode = tiktokPostMode;
 				}
 			}
 
@@ -1350,7 +1913,6 @@ export class UploadPost implements INodeType {
 			}
 
 			if (isUploadOperation && platforms.includes('youtube') && operation === 'uploadVideo') {
-				const youtubeDescription = this.getNodeParameter('youtubeDescription', i) as string | undefined;
 				const youtubeTagsRaw = this.getNodeParameter('youtubeTags', i) as string | undefined;
 				const youtubeCategoryId = this.getNodeParameter('youtubeCategoryId', i) as string | undefined;
 				const youtubePrivacyStatus = this.getNodeParameter('youtubePrivacyStatus', i) as string | undefined;
@@ -1360,7 +1922,6 @@ export class UploadPost implements INodeType {
 				const youtubeMadeForKids = this.getNodeParameter('youtubeMadeForKids', i) as boolean | undefined;
 				const youtubeThumbnail = this.getNodeParameter('youtubeThumbnail', i) as string | undefined;
 
-				if (youtubeDescription) formData.description = youtubeDescription;
 				if (youtubeTagsRaw) formData.tags = youtubeTagsRaw.split(',').map(tag => tag.trim());
 				if (youtubeCategoryId) formData.categoryId = youtubeCategoryId;
 				if (youtubePrivacyStatus) formData.privacyStatus = youtubePrivacyStatus;
@@ -1391,12 +1952,7 @@ export class UploadPost implements INodeType {
 				}
 			}
 
-			if (isUploadOperation && platforms.includes('threads')) {
-				if (operation === 'uploadVideo'){
-					const threadsDescription = this.getNodeParameter('threadsDescription', i) as string | undefined;
-					if (threadsDescription) formData.description = threadsDescription;
-				}
-			}
+				// Threads description handled via override block
 
 			if (isUploadOperation && platforms.includes('x')) {
 				if (operation === 'uploadText') {
@@ -1407,6 +1963,10 @@ export class UploadPost implements INodeType {
 					const xReplySettingsText = this.getNodeParameter('xReplySettings', i) as string | undefined;
 					if (xTaggedUserIdsText) formData.tagged_user_ids = xTaggedUserIdsText.split(',').map(id => id.trim());
 					if (xReplySettingsText) formData.reply_settings = xReplySettingsText;
+					try {
+						const xLongTextAsPostText = this.getNodeParameter('xLongTextAsPost', i, false) as boolean;
+						if (xLongTextAsPostText) formData.x_long_text_as_post = String(xLongTextAsPostText);
+					} catch {}
 					
 					delete formData.nullcast;
 					delete formData.place_id;
@@ -1421,6 +1981,7 @@ export class UploadPost implements INodeType {
 					const xPollDurationVideo = this.getNodeParameter('xPollDurationVideo', i) as number | undefined;
 					const xPollOptionsVideoRaw = this.getNodeParameter('xPollOptionsVideo', i) as string | undefined;
 					const xPollReplySettingsVideo = this.getNodeParameter('xPollReplySettingsVideo', i) as string | undefined;
+						const xLongTextAsPost = this.getNodeParameter('xLongTextAsPost', i, false) as boolean;
 
 					if (xTaggedUserIds) formData.tagged_user_ids = xTaggedUserIds.split(',').map(id => id.trim());
 					if (xReplySettings) formData.reply_settings = xReplySettings;
@@ -1429,6 +1990,7 @@ export class UploadPost implements INodeType {
 					if (xPollDurationVideo !== undefined) formData.poll_duration = xPollDurationVideo;
 					if (xPollOptionsVideoRaw) formData.poll_options = xPollOptionsVideoRaw.split(',').map(opt => opt.trim());
 					if (xPollReplySettingsVideo) formData.poll_reply_settings = xPollReplySettingsVideo;
+						if (xLongTextAsPost) formData.x_long_text_as_post = String(xLongTextAsPost);
 				}
 			}
 
@@ -1481,7 +2043,7 @@ export class UploadPost implements INodeType {
 					const pollTimeoutSec = this.getNodeParameter('pollTimeout', i, 600) as number;
 					const start = Date.now();
 					while (true) {
-						await new Promise(res => (globalThis as any).setTimeout(res, Math.max(1, pollIntervalSec) * 1000));
+						await sleep(Math.max(1, pollIntervalSec) * 1000);
 						if (Date.now() - start > Math.max(5, pollTimeoutSec) * 1000) {
 							finalData = { success: false, message: 'Polling timed out', request_id: requestId };
 							break;
