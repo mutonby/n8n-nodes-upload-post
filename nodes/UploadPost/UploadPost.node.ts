@@ -194,21 +194,7 @@ export class UploadPost implements INodeType {
 					displayOptions: { show: { operation: ['uploadPhotos','uploadVideo','uploadText'], platform: ['pinterest'] } },
 				},
 
-
-			// Fields for Upload Photo(s)
-			{
-				displayName: 'Photos (Files or URLs)',
-				name: 'photos',
-				type: 'string',
-				required: true,
-				default: '',
-				description: 'Provide photo files or URLs as a comma-separated list (e.g., data,https://example.com/image.jpg,otherImage). For files, enter the binary property name (e.g., data, myImage). For URLs, provide direct HTTP/HTTPS URLs.',
-				displayOptions: {
-					show: {
-						operation: ['uploadPhotos'],
-					},
-				},
-			},
+			// Generic Description & Platform Overrides
 			{
 				displayName: 'Description (Optional)',
 				name: 'description',
@@ -221,7 +207,6 @@ export class UploadPost implements INodeType {
 					}
 				},
 			},
-			// Platform-specific Description Overrides
 			{
 				displayName: 'Instagram Description (Override)',
 				name: 'instagramDescription',
@@ -287,6 +272,22 @@ export class UploadPost implements INodeType {
 				displayOptions: { show: { operation: ['uploadVideo'], platform: ['threads'] } },
 			},
 
+
+		// Fields for Upload Photo(s)
+			{
+				displayName: 'Photos (Files or URLs)',
+				name: 'photos',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'Provide photo files or URLs as a comma-separated list (e.g., data,https://example.com/image.jpg,otherImage). For files, enter the binary property name (e.g., data, myImage). For URLs, provide direct HTTP/HTTPS URLs.',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos'],
+					},
+				},
+			},
+
 		// Fields for Upload Video
 			{
 				displayName: 'Video (File or URL)',
@@ -325,7 +326,7 @@ export class UploadPost implements INodeType {
 				displayName: 'Wait for Completion',
 				name: 'waitForCompletion',
 				type: 'boolean',
-				default: false,
+				default: true,
 				description: 'Whether to perform best-effort sleeping between status checks within this node. Not guaranteed to finish; for reliable long polling use a separate Wait node plus Get Upload Status.',
 				displayOptions: {
 					show: {
@@ -983,19 +984,6 @@ export class UploadPost implements INodeType {
 
 		// ----- YouTube Specific Parameters (Video Only) -----
 			{
-				displayName: 'YouTube Video Description',
-				name: 'youtubeDescription',
-				type: 'string',
-				default: '',
-				description: 'Description of the video for YouTube. If not provided, Title is used. Only for Upload Video.',
-				displayOptions: {
-					show: {
-						operation: ['uploadVideo'],
-						platform: ['youtube']
-					},
-				},
-			},
-			{
 				displayName: 'YouTube Tags',
 				name: 'youtubeTags',
 				type: 'string',
@@ -1197,21 +1185,6 @@ export class UploadPost implements INodeType {
 				},
 			},
 
-		// ----- Threads Specific Parameters (Not for Photo) -----
-			{
-				displayName: 'Threads Video Description',
-				name: 'threadsDescription',
-				type: 'string',
-				default: '',
-				description: 'User commentary for Threads video. If not provided, Title is used. Not for Photos/Text.',
-				displayOptions: {
-					show: {
-						operation: ['uploadVideo'],
-						platform: ['threads']
-					},
-				},
-			},
-
 		// ----- X (Twitter) Specific Parameters (Video & Text - Not for Photo) -----
 			{
 				displayName: 'X Tagged User IDs (Video/Text)',
@@ -1339,44 +1312,6 @@ export class UploadPost implements INodeType {
 						platform: ['x']
 					},
 				},
-			},
-
-			{
-				displayName: 'Description (Optional)',
-				name: 'description',
-				type: 'string',
-				default: '',
-				description: 'Generic description to use across platforms when supported. Platform-specific overrides below take precedence.',
-				displayOptions: {
-					show: {
-						operation: ['uploadPhotos', 'uploadVideo']
-					}
-				},
-			},
-			// Platform-specific Description Overrides
-			{
-				displayName: 'LinkedIn Description (Override)',
-				name: 'linkedinDescription',
-				type: 'string',
-				default: '',
-				description: 'Optional description override for LinkedIn',
-				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['linkedin'] } },
-			},
-			{
-				displayName: 'YouTube Description (Override)',
-				name: 'youtubeDescription',
-				type: 'string',
-				default: '',
-				description: 'Optional description override for YouTube',
-				displayOptions: { show: { operation: ['uploadVideo'], platform: ['youtube'] } },
-			},
-			{
-				displayName: 'Threads Description (Override)',
-				name: 'threadsDescription',
-				type: 'string',
-				default: '',
-				description: 'Optional description override for Threads',
-				displayOptions: { show: { operation: ['uploadVideo'], platform: ['threads'] } },
 			},
 
 		],
