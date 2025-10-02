@@ -200,27 +200,20 @@ export class UploadPost implements INodeType {
 				name: 'description',
 				type: 'string',
 				default: '',
-				description: 'Generic description to use across platforms when supported. Platform-specific overrides below take precedence.',
+				description: 'Optional extended description used for LinkedIn commentary, Facebook description/message, YouTube video description, Pinterest description, and TikTok photo captions. Other platforms ignore it. When empty we fall back to the main title where a description is required. Platform-specific overrides below take precedence.',
 				displayOptions: {
 					show: {
-						operation: ['uploadPhotos', 'uploadVideo']
+						operation: ['uploadPhotos', 'uploadVideo'],
+						platform: ['linkedin', 'facebook', 'youtube', 'pinterest', 'tiktok']
 					}
 				},
-			},
-			{
-				displayName: 'Instagram Description (Override)',
-				name: 'instagramDescription',
-				type: 'string',
-				default: '',
-				description: 'Optional description override for Instagram',
-				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['instagram'] } },
 			},
 			{
 				displayName: 'Facebook Description (Override)',
 				name: 'facebookDescription',
 				type: 'string',
 				default: '',
-				description: 'Optional description override for Facebook',
+				description: 'Override for Facebook description/message when supported (Reels/feed, albums). Falls back to the main title when empty.',
 				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['facebook'] } },
 			},
 			{
@@ -228,31 +221,23 @@ export class UploadPost implements INodeType {
 				name: 'tiktokDescription',
 				type: 'string',
 				default: '',
-				description: 'Optional description override for TikTok',
-				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['tiktok'] } },
+				description: 'Override for TikTok photo post description. Video uploads ignore this value.',
+				displayOptions: { show: { operation: ['uploadPhotos'], platform: ['tiktok'] } },
 			},
 			{
 				displayName: 'LinkedIn Description (Override)',
 				name: 'linkedinDescription',
 				type: 'string',
 				default: '',
-				description: 'Optional description override for LinkedIn',
+				description: 'Override for LinkedIn post commentary. When empty we repeat the main title.',
 				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['linkedin'] } },
-			},
-			{
-				displayName: 'X Description (Override)',
-				name: 'xDescription',
-				type: 'string',
-				default: '',
-				description: 'Optional description override for X',
-				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['x'] } },
 			},
 			{
 				displayName: 'YouTube Description (Override)',
 				name: 'youtubeDescription',
 				type: 'string',
 				default: '',
-				description: 'Optional description override for YouTube',
+				description: 'Override for YouTube video description. When empty we default to the main title.',
 				displayOptions: { show: { operation: ['uploadVideo'], platform: ['youtube'] } },
 			},
 			{
@@ -260,16 +245,8 @@ export class UploadPost implements INodeType {
 				name: 'pinterestDescription',
 				type: 'string',
 				default: '',
-				description: 'Optional description override for Pinterest',
+				description: 'Override for Pinterest pin description (and alt text fallback). When empty we re-use the main title.',
 				displayOptions: { show: { operation: ['uploadPhotos','uploadVideo'], platform: ['pinterest'] } },
-			},
-			{
-				displayName: 'Threads Description (Override)',
-				name: 'threadsDescription',
-				type: 'string',
-				default: '',
-				description: 'Optional description override for Threads',
-				displayOptions: { show: { operation: ['uploadVideo'], platform: ['threads'] } },
 			},
 
 
@@ -1461,10 +1438,13 @@ export class UploadPost implements INodeType {
 				} catch {}
 			}
 
-				// Apply generic description and platform-specific description overrides
+		// Apply generic description and platform-specific description overrides
 			if (isUploadOperation) {
 				const genericDescription = this.getNodeParameter('description', i, '') as string;
-				if (genericDescription) (formData as any).description = genericDescription;
+				const descriptionPlatforms = new Set(['linkedin', 'facebook', 'youtube', 'pinterest', 'tiktok']);
+				if (genericDescription && platforms.some(p => descriptionPlatforms.has(p))) {
+					(formData as any).description = genericDescription;
+				}
 				try {
 					if (platforms.includes('linkedin')) {
 						const linkedinDescription = this.getNodeParameter('linkedinDescription', i, '') as string;
@@ -1478,33 +1458,15 @@ export class UploadPost implements INodeType {
 					}
 				} catch {}
 				try {
-					if (platforms.includes('threads')) {
-						const threadsDescription = this.getNodeParameter('threadsDescription', i, '') as string;
-						if (threadsDescription) (formData as any).threads_description = threadsDescription;
-					}
-				} catch {}
-				try {
 					if (platforms.includes('facebook')) {
 						const facebookDescription = this.getNodeParameter('facebookDescription', i, '') as string;
 						if (facebookDescription) (formData as any).facebook_description = facebookDescription;
 					}
 				} catch {}
 				try {
-					if (platforms.includes('instagram')) {
-						const instagramDescription = this.getNodeParameter('instagramDescription', i, '') as string;
-						if (instagramDescription) (formData as any).instagram_description = instagramDescription;
-					}
-				} catch {}
-				try {
 					if (platforms.includes('tiktok')) {
 						const tiktokDescription = this.getNodeParameter('tiktokDescription', i, '') as string;
 						if (tiktokDescription) (formData as any).tiktok_description = tiktokDescription;
-					}
-				} catch {}
-				try {
-					if (platforms.includes('x')) {
-						const xDescription = this.getNodeParameter('xDescription', i, '') as string;
-						if (xDescription) (formData as any).x_description = xDescription;
 					}
 				} catch {}
 				try {
