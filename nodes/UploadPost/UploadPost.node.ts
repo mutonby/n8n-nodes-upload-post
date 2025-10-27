@@ -9,6 +9,7 @@ import {
 	INodeTypeDescription,
 	IRequestOptions,
 	NodeConnectionType,
+	NodeOperationError,
 	sleep
 } from 'n8n-workflow';
 
@@ -109,22 +110,13 @@ export class UploadPost implements INodeType {
 				},
 			},
 			{
-				displayName: 'Platform(s)',
+				displayName: 'Platform Names or IDs',
 				name: 'platform',
 				type: 'multiOptions',
 				required: true,
-				options: [
-					{ name: 'Facebook', value: 'facebook' },
-					{ name: 'Instagram', value: 'instagram' },
-					{ name: 'LinkedIn', value: 'linkedin' },
-					{ name: 'Pinterest', value: 'pinterest' },
-					{ name: 'Threads', value: 'threads' },
-					{ name: 'TikTok', value: 'tiktok' },
-					{ name: 'X (Twitter)', value: 'x' },
-					{ name: 'YouTube', value: 'youtube' },
-				],
+				typeOptions: { loadOptionsMethod: 'getPlatforms' },
 				default: [],
-				description: 'Platform(s) to upload to. Supported platforms vary by operation.',
+				description: 'Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 				displayOptions: { show: { resource: ['uploads'], operation: ['uploadPhotos','uploadVideo','uploadText'] } },
 			},
 			{
@@ -191,8 +183,16 @@ export class UploadPost implements INodeType {
 					type: 'string',
 					default: '',
 					description: 'Optional override for Pinterest title',
-					displayOptions: { show: { operation: ['uploadPhotos','uploadVideo','uploadText'], platform: ['pinterest'] } },
-				},
+					displayOptions: { show: { operation: ['uploadPhotos','uploadVideo','uploadText'], platform: ['pinterest'] } 				},
+			},
+			{
+				displayName: 'Threads Title (Override)',
+				name: 'threadsTitle',
+				type: 'string',
+				default: '',
+				description: 'Optional override for Threads title',
+				displayOptions: { show: { operation: ['uploadText'], platform: ['threads'] } },
+			},
 
 			// Generic Description & Platform Overrides
 			{
@@ -530,8 +530,7 @@ export class UploadPost implements INodeType {
 				typeOptions: { loadOptionsMethod: 'getLinkedinPages' },
 				displayOptions: {
 					show: {
-						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
-						platform: ['linkedin']
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText']
 					}
 				},
 			},
@@ -560,8 +559,7 @@ export class UploadPost implements INodeType {
 				typeOptions: { loadOptionsMethod: 'getFacebookPages' },
 				displayOptions: {
 					show: {
-						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
-						platform: ['facebook']
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText']
 					}
 				},
 			},
@@ -598,10 +596,9 @@ export class UploadPost implements INodeType {
 				options: [
 					{ name: 'Published', value: 'PUBLISHED' },
 					{ name: 'Draft', value: 'DRAFT' },
-					{ name: 'Scheduled', value: 'SCHEDULED' },
 				],
 				default: 'PUBLISHED',
-				description: 'State for Facebook Video (DRAFT, PUBLISHED, SCHEDULED). Not for Photos/Text.',
+				description: 'State for Facebook Video (DRAFT or PUBLISHED). Use Scheduled Date field for scheduling.',
 				displayOptions: {
 					show: {
 						operation: ['uploadVideo'],
@@ -655,32 +652,6 @@ export class UploadPost implements INodeType {
 				},
 			},
 			{
-				displayName: 'TikTok Branded Content (Photo)',
-				name: 'tiktokBrandedContentPhoto',
-				type: 'boolean',
-				default: false,
-				description: 'Whether to indicate photo post is branded content (requires Disclose Commercial). Only for Upload Photos.',
-				displayOptions: {
-					show: {
-						operation: ['uploadPhotos'],
-						platform: ['tiktok']
-					},
-				},
-			},
-			{
-				displayName: 'TikTok Disclose Commercial (Photo)',
-				name: 'tiktokDiscloseCommercialPhoto',
-				type: 'boolean',
-				default: false,
-				description: 'Whether to disclose commercial nature of photo post. Only for Upload Photos.',
-				displayOptions: {
-					show: {
-						operation: ['uploadPhotos'],
-						platform: ['tiktok']
-					},
-				},
-			},
-			{
 				displayName: 'TikTok Photo Cover Index',
 				name: 'tiktokPhotoCoverIndex',
 				type: 'number',
@@ -700,6 +671,32 @@ export class UploadPost implements INodeType {
 				type: 'string',
 				default: '',
 				description: 'Description for TikTok photo post. If not provided, Title is used. Only for Upload Photos.',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos'],
+						platform: ['tiktok']
+					},
+				},
+			},
+			{
+				displayName: 'TikTok Brand Content Toggle (Photo)',
+				name: 'brand_content_toggle',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to set as true for paid partnerships that promote third-party brands',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos'],
+						platform: ['tiktok']
+					},
+				},
+			},
+			{
+				displayName: 'TikTok Brand Organic Toggle (Photo)',
+				name: 'brand_organic_toggle',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to set as true when promoting the creator\'s own business',
 				displayOptions: {
 					show: {
 						operation: ['uploadPhotos'],
@@ -767,36 +764,10 @@ export class UploadPost implements INodeType {
 			},
 			{
 				displayName: 'TikTok Brand Content Toggle (Video)',
-				name: 'tiktokBrandContentToggle',
+				name: 'brand_content_toggle',
 				type: 'boolean',
 				default: false,
-				description: 'Whether to enable branded content for TikTok video. Only for Upload Video.',
-				displayOptions: {
-					show: {
-						operation: ['uploadVideo'],
-						platform: ['tiktok']
-					},
-				},
-			},
-			{
-				displayName: 'TikTok Brand Organic (Video)',
-				name: 'tiktokBrandOrganic',
-				type: 'boolean',
-				default: false,
-				description: 'Whether to enable organic branded content for TikTok video. Only for Upload Video.',
-				displayOptions: {
-					show: {
-						operation: ['uploadVideo'],
-						platform: ['tiktok']
-					},
-				},
-			},
-			{
-				displayName: 'TikTok Branded Content (Video)',
-				name: 'tiktokBrandedContentVideo',
-				type: 'boolean',
-				default: false,
-				description: 'Whether to enable branded content with disclosure for TikTok video. Only for Upload Video.',
+				description: 'Whether to enable brand content toggle for paid partnerships that promote third-party brands',
 				displayOptions: {
 					show: {
 						operation: ['uploadVideo'],
@@ -806,10 +777,10 @@ export class UploadPost implements INodeType {
 			},
 			{
 				displayName: 'TikTok Brand Organic Toggle (Video)',
-				name: 'tiktokBrandOrganicToggle',
+				name: 'brand_organic_toggle',
 				type: 'boolean',
 				default: false,
-				description: 'Whether to enable organic branded content toggle for TikTok video. Only for Upload Video.',
+				description: 'Whether to enable brand organic toggle when promoting the creator\'s own business',
 				displayOptions: {
 					show: {
 						operation: ['uploadVideo'],
@@ -959,6 +930,35 @@ export class UploadPost implements INodeType {
 				},
 			},
 
+		// ----- Threads Specific Parameters -----
+			{
+				displayName: 'Threads Long Text as Single Post',
+				name: 'threadsLongTextAsPost',
+				type: 'boolean',
+				default: false,
+				description: 'Whether long text is published as a single post. If false (default), a thread is created if the text exceeds 500 characters.',
+				displayOptions: { show: { operation: ['uploadText'], platform: ['threads'] } },
+			},
+
+		// ----- Reddit Specific Parameters -----
+			{
+				displayName: 'Reddit Subreddit',
+				name: 'redditSubreddit',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'Destination subreddit, without r/ (e.g., python)',
+				displayOptions: { show: { operation: ['uploadText'] } },
+			},
+			{
+				displayName: 'Reddit Flair ID',
+				name: 'redditFlairId',
+				type: 'string',
+				default: '',
+				description: 'ID of the flair template to apply to the post',
+				displayOptions: { show: { operation: ['uploadText'], platform: ['reddit'] } },
+			},
+
 		// ----- YouTube Specific Parameters (Video Only) -----
 			{
 				displayName: 'YouTube Tags',
@@ -1073,6 +1073,110 @@ export class UploadPost implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'YouTube Self Declared Made For Kids',
+				name: 'youtubeSelfDeclaredMadeForKids',
+				type: 'boolean',
+				default: false,
+				description: 'Whether this is an explicit declaration for children content (COPPA compliance). Only for Upload Video.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['youtube']
+					},
+				},
+			},
+			{
+				displayName: 'YouTube Contains Synthetic Media',
+				name: 'youtubeContainsSyntheticMedia',
+				type: 'boolean',
+				default: false,
+				description: 'Whether this is a declaration for AI/synthetic content transparency. Only for Upload Video.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['youtube']
+					},
+				},
+			},
+			{
+				displayName: 'YouTube Default Language',
+				name: 'youtubeDefaultLanguage',
+				type: 'string',
+				default: '',
+				description: 'Title/description language (BCP-47 codes like "es", "en"). Only for Upload Video.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['youtube']
+					},
+				},
+			},
+			{
+				displayName: 'YouTube Default Audio Language',
+				name: 'youtubeDefaultAudioLanguage',
+				type: 'string',
+				default: '',
+				description: 'Video audio language (BCP-47 codes like "es-ES", "en-US"). Only for Upload Video.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['youtube']
+					},
+				},
+			},
+			{
+				displayName: 'YouTube Allowed Countries',
+				name: 'youtubeAllowedCountries',
+				type: 'string',
+				default: '',
+				description: 'Comma-separated country codes for allowed regions (ISO 3166-1 alpha-2). Cannot be used with blocked countries. Only for Upload Video.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['youtube']
+					},
+				},
+			},
+			{
+				displayName: 'YouTube Blocked Countries',
+				name: 'youtubeBlockedCountries',
+				type: 'string',
+				default: '',
+				description: 'Comma-separated country codes for blocked regions (ISO 3166-1 alpha-2). Cannot be used with allowed countries. Only for Upload Video.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['youtube']
+					},
+				},
+			},
+			{
+				displayName: 'YouTube Has Paid Product Placement',
+				name: 'youtubeHasPaidProductPlacement',
+				type: 'boolean',
+				default: false,
+				description: 'Whether this is a declaration for paid product placements (FTC compliance). Only for Upload Video.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['youtube']
+					},
+				},
+			},
+			{
+				displayName: 'YouTube Recording Date',
+				name: 'youtubeRecordingDate',
+				type: 'dateTime',
+				default: '',
+				description: 'Recording timestamp (ISO 8601 format). Only for Upload Video.',
+				displayOptions: {
+					show: {
+						operation: ['uploadVideo'],
+						platform: ['youtube']
+					},
+				},
+			},
 
 			// ----- Pinterest Specific Parameters (Video Only) -----
 
@@ -1086,7 +1190,7 @@ export class UploadPost implements INodeType {
 				displayOptions: {
 					show: {
 						resource: ['uploads'],
-						platform: ['pinterest']
+						operation: ['uploadPhotos', 'uploadVideo']
 					},
 				},
 			},
@@ -1162,47 +1266,49 @@ export class UploadPost implements INodeType {
 				},
 			},
 
-		// ----- X (Twitter) Specific Parameters (Video & Text - Not for Photo) -----
+		// ----- X (Twitter) Specific Parameters -----
 			{
-				displayName: 'X Tagged User IDs (Video/Text)',
+				displayName: 'X Tagged User IDs',
 				name: 'xTaggedUserIds',
 				type: 'string',
 				default: '',
-				description: 'Comma-separated list of user IDs to tag for X (Twitter). Not for Photos.',
+				description: 'Comma-separated list of user IDs to tag for X (Twitter)',
 				displayOptions: {
 					show: {
-						operation: ['uploadVideo', 'uploadText'],
+						operation: ['uploadPhotos', 'uploadVideo'],
 						platform: ['x']
 					},
 				},
 			},
 			{
-				displayName: 'X Reply Settings (Video/Text)',
+				displayName: 'X Reply Settings',
 				name: 'xReplySettings',
 				type: 'options',
 				options: [
+					{ name: 'Everyone', value: 'everyone' },
 					{ name: 'Following', value: 'following' },
 					{ name: 'Mentioned Users', value: 'mentionedUsers' },
-					{ name: 'Everyone', value: 'everyone' },
+					{ name: 'Subscribers', value: 'subscribers' },
+					{ name: 'Verified', value: 'verified' },
 				],
-				default: 'following',
-				description: 'Who can reply to the post on X (Twitter) (following, mentionedUsers, everyone). Not for Photos.',
+				default: 'everyone',
+				description: 'Who can reply to the post on X (Twitter)',
 				displayOptions: {
 					show: {
-						operation: ['uploadVideo', 'uploadText'],
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
 						platform: ['x']
 					},
 				},
 			},
 			{
-				displayName: 'X Nullcast (Video)',
+				displayName: 'X Nullcast',
 				name: 'xNullcastVideo',
 				type: 'boolean',
 				default: false,
-				description: 'Whether to publish X (Twitter) video without broadcasting. Not for Text/Photos.',
+				description: 'Whether to publish X (Twitter) post without broadcasting (promoted-only posts)',
 				displayOptions: {
 					show: {
-						operation: ['uploadVideo'],
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
 						platform: ['x']
 					},
 				},
@@ -1221,47 +1327,48 @@ export class UploadPost implements INodeType {
 				},
 			},
 			{
-				displayName: 'X Poll Duration (Minutes, Video)',
-				name: 'xPollDurationVideo',
+				displayName: 'X Poll Duration (Minutes)',
+				name: 'xPollDuration',
 				type: 'number',
 				default: 1440,
-				description: 'Poll duration in minutes for X (Twitter) video post (requires Poll Options). Not for Text/Photos.',
+				description: 'Poll duration in minutes for X (Twitter) post (requires Poll Options)',
 				displayOptions: {
 					show: {
-						operation: ['uploadVideo'],
+						operation: ['uploadText'],
 						platform: ['x']
-					},
+					}
 				},
 			},
 			{
-				displayName: 'X Poll Options (Video)',
-				name: 'xPollOptionsVideo',
+				displayName: 'X Poll Options',
+				name: 'xPollOptions',
 				type: 'string',
 				default: '',
-				description: 'Comma-separated list of poll options for X (Twitter) video post. Will be sent as an array. Not for Text/Photos.',
+				description: 'Comma-separated list of poll options for X (Twitter) post',
 				displayOptions: {
 					show: {
-						operation: ['uploadVideo'],
+						operation: ['uploadText'],
 						platform: ['x']
-					},
+					}
 				},
 			},
 			{
-				displayName: 'X Poll Reply Settings (Video)',
-				name: 'xPollReplySettingsVideo',
+				displayName: 'X Poll Reply Settings',
+				name: 'xPollReplySettings',
 				type: 'options',
 				options: [
 					{ name: 'Following', value: 'following' },
 					{ name: 'Mentioned Users', value: 'mentionedUsers' },
 					{ name: 'Everyone', value: 'everyone' },
+					{ name: 'Subscribers', value: 'subscribers' },
 				],
 				default: 'following',
-				description: 'Who can reply to the poll in X (Twitter) video post (following, mentionedUsers, everyone). Not for Text/Photos.',
+				description: 'Who can reply to the poll in X (Twitter) post',
 				displayOptions: {
 					show: {
-						operation: ['uploadVideo'],
+						operation: ['uploadText'],
 						platform: ['x']
-					},
+					}
 				},
 			},
 			{
@@ -1275,6 +1382,97 @@ export class UploadPost implements INodeType {
 						operation: ['uploadText'],
 						platform: ['x']
 					},
+				},
+			},
+			{
+				displayName: 'X Quote Tweet ID',
+				name: 'xQuoteTweetId',
+				type: 'string',
+				default: '',
+				description: 'ID of the tweet to quote in a quote tweet',
+				displayOptions: {
+					show: {
+						operation: ['uploadText'],
+						platform: ['x']
+					}
+				},
+			},
+			{
+				displayName: 'X Geo Place ID',
+				name: 'xGeoPlaceId',
+				type: 'string',
+				default: '',
+				description: 'Geographic place ID to add location to the tweet',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
+						platform: ['x']
+					},
+				},
+			},
+			{
+				displayName: 'X For Super Followers Only',
+				name: 'xForSuperFollowersOnly',
+				type: 'boolean',
+				default: false,
+				description: 'Whether the tweet is exclusive for super followers',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
+						platform: ['x']
+					},
+				},
+			},
+			{
+				displayName: 'X Community ID',
+				name: 'xCommunityId',
+				type: 'string',
+				default: '',
+				description: 'Community ID for posting in specific communities',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
+						platform: ['x']
+					},
+				},
+			},
+			{
+				displayName: 'X Share with Followers',
+				name: 'xShareWithFollowers',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to share community post with followers',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
+						platform: ['x']
+					},
+				},
+			},
+			{
+				displayName: 'X Direct Message Deep Link',
+				name: 'xDirectMessageDeepLink',
+				type: 'string',
+				default: '',
+				description: 'Link to take the conversation from public timeline to private Direct Message',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
+						platform: ['x']
+					}
+				},
+			},
+			{
+				displayName: 'X Card URI',
+				name: 'xCardUri',
+				type: 'string',
+				default: '',
+				description: 'URI of card (for Twitter Cards/ads/promoted content)',
+				displayOptions: {
+					show: {
+						operation: ['uploadText'],
+						platform: ['x']
+					}
 				},
 			},
 			{
@@ -1297,6 +1495,29 @@ export class UploadPost implements INodeType {
 	// Load options methods for dynamic selectors
 	methods = {
 		loadOptions: {
+			async getPlatforms(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const operation = this.getCurrentNodeParameter('operation') as string;
+				const allPlatforms = [
+					{ name: 'Facebook', value: 'facebook' },
+					{ name: 'Instagram', value: 'instagram' },
+					{ name: 'LinkedIn', value: 'linkedin' },
+					{ name: 'Pinterest', value: 'pinterest' },
+					{ name: 'Reddit', value: 'reddit' },
+					{ name: 'Threads', value: 'threads' },
+					{ name: 'TikTok', value: 'tiktok' },
+					{ name: 'X (Twitter)', value: 'x' },
+					{ name: 'YouTube', value: 'youtube' },
+				];
+
+				const platformSupport: Record<string, string[]> = {
+					uploadPhotos: ['facebook', 'instagram', 'linkedin', 'pinterest', 'threads', 'tiktok', 'x'],
+					uploadVideo: ['facebook', 'instagram', 'linkedin', 'pinterest', 'threads', 'tiktok', 'x', 'youtube'],
+					uploadText: ['facebook', 'linkedin', 'reddit', 'threads', 'x'],
+				};
+
+				const supportedPlatforms = platformSupport[operation] || [];
+				return allPlatforms.filter(platform => supportedPlatforms.includes(platform.value));
+			},
 			async getFacebookPages(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const credentials = await this.getCredentials('uploadPostApi');
 				const apiKey = credentials.apiKey as string;
@@ -1329,7 +1550,13 @@ export class UploadPost implements INodeType {
 				};
 				const resp = await this.helpers.request(options);
 				const pages = (resp && (resp.pages || resp.data || [])) as Array<{ id: string; name?: string }>;
-				return (pages || []).map(p => ({ name: p.name ? `${p.name} (${p.id})` : p.id, value: p.id }));
+				const pageOptions = (pages || []).map(p => ({ name: p.name ? `${p.name} (${p.id})` : p.id, value: p.id }));
+
+				// Add "Me" option at the beginning to post to personal profile
+				return [
+					{ name: 'Me (Personal Profile)', value: 'me' },
+					...pageOptions
+				];
 			},
 			async getPinterestBoards(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const credentials = await this.getCredentials('uploadPostApi');
@@ -1577,7 +1804,7 @@ export class UploadPost implements INodeType {
 					break;
 				case 'uploadText':
 					endpoint = '/upload_text';
-					const allowedTextPlatforms = ['x', 'linkedin', 'facebook', 'threads'];
+					const allowedTextPlatforms = ['x', 'linkedin', 'facebook', 'threads', 'reddit'];
 					platforms = platforms.filter(p => allowedTextPlatforms.includes(p));
 					formData['platform[]'] = platforms;
 					break;
@@ -1694,7 +1921,7 @@ export class UploadPost implements INodeType {
 			// Add platform specifics only for uploads
 			if (isUploadOperation && platforms.includes('linkedin')) {
 				const targetLinkedinPageId = this.getNodeParameter('targetLinkedinPageId', i) as string | undefined;
-				if (targetLinkedinPageId) {
+				if (targetLinkedinPageId && targetLinkedinPageId !== 'me') {
 					// Extract only the numeric ID from a URN like "urn:li:organization:108870530"
 					const match = targetLinkedinPageId.match(/(\d+)$/);
 					if (match) {
@@ -1728,7 +1955,7 @@ export class UploadPost implements INodeType {
 						} catch {}
 				} else if (operation === 'uploadText') {
 					const facebookLink = this.getNodeParameter('facebookLink', i) as string | undefined;
-					if (facebookLink) formData.link = facebookLink;
+					if (facebookLink) formData.facebook_link_url = facebookLink;
 				}
 			}
 
@@ -1736,15 +1963,15 @@ export class UploadPost implements INodeType {
 				if (operation === 'uploadPhotos') {
 					const tiktokAutoAddMusic = this.getNodeParameter('tiktokAutoAddMusic', i) as boolean | undefined;
 					const tiktokDisableComment = this.getNodeParameter('tiktokDisableComment', i) as boolean | undefined;
-					const tiktokBrandedContentPhoto = this.getNodeParameter('tiktokBrandedContentPhoto', i) as boolean | undefined;
-					const tiktokDiscloseCommercialPhoto = this.getNodeParameter('tiktokDiscloseCommercialPhoto', i) as boolean | undefined;
+					const brandContentToggle = this.getNodeParameter('brand_content_toggle', i) as boolean | undefined;
+					const brandOrganicToggle = this.getNodeParameter('brand_organic_toggle', i) as boolean | undefined;
 					const tiktokPhotoCoverIndex = this.getNodeParameter('tiktokPhotoCoverIndex', i) as number | undefined;
 					const tiktokPhotoDescription = this.getNodeParameter('tiktokPhotoDescription', i) as string | undefined;
 
 					if (tiktokAutoAddMusic !== undefined) formData.auto_add_music = String(tiktokAutoAddMusic);
 					if (tiktokDisableComment !== undefined) formData.disable_comment = String(tiktokDisableComment);
-					if (tiktokBrandedContentPhoto !== undefined) formData.branded_content = String(tiktokBrandedContentPhoto);
-					if (tiktokDiscloseCommercialPhoto !== undefined) formData.disclose_commercial = String(tiktokDiscloseCommercialPhoto);
+					if (brandContentToggle !== undefined) formData.brand_content_toggle = String(brandContentToggle);
+					if (brandOrganicToggle !== undefined) formData.brand_organic_toggle = String(brandOrganicToggle);
 					if (tiktokPhotoCoverIndex !== undefined) formData.photo_cover_index = tiktokPhotoCoverIndex;
 						if (tiktokPhotoDescription && (formData as any).description === undefined) (formData as any).description = tiktokPhotoDescription;
 					
@@ -1754,10 +1981,8 @@ export class UploadPost implements INodeType {
 					const tiktokDisableComment = this.getNodeParameter('tiktokDisableComment', i) as boolean | undefined;
 					const tiktokDisableStitch = this.getNodeParameter('tiktokDisableStitch', i) as boolean | undefined;
 					const tiktokCoverTimestamp = this.getNodeParameter('tiktokCoverTimestamp', i) as number | undefined;
-					const tiktokBrandContentToggle = this.getNodeParameter('tiktokBrandContentToggle', i) as boolean | undefined;
-					const tiktokBrandOrganic = this.getNodeParameter('tiktokBrandOrganic', i) as boolean | undefined;
-					const tiktokBrandedContentVideo = this.getNodeParameter('tiktokBrandedContentVideo', i) as boolean | undefined;
-					const tiktokBrandOrganicToggle = this.getNodeParameter('tiktokBrandOrganicToggle', i) as boolean | undefined;
+					const brandContentToggle = this.getNodeParameter('brand_content_toggle', i) as boolean | undefined;
+					const brandOrganicToggle = this.getNodeParameter('brand_organic_toggle', i) as boolean | undefined;
 					const tiktokIsAigc = this.getNodeParameter('tiktokIsAigc', i) as boolean | undefined;
 					const tiktokPostMode = this.getNodeParameter('tiktokPostMode', i) as string | undefined;
 
@@ -1766,10 +1991,8 @@ export class UploadPost implements INodeType {
 					if (tiktokDisableComment !== undefined) formData.disable_comment = String(tiktokDisableComment);
 					if (tiktokDisableStitch !== undefined) formData.disable_stitch = String(tiktokDisableStitch);
 					if (tiktokCoverTimestamp !== undefined) formData.cover_timestamp = tiktokCoverTimestamp;
-					if (tiktokBrandContentToggle !== undefined) formData.brand_content_toggle = String(tiktokBrandContentToggle);
-					if (tiktokBrandOrganic !== undefined) formData.brand_organic = String(tiktokBrandOrganic);
-					if (tiktokBrandedContentVideo !== undefined) formData.branded_content = String(tiktokBrandedContentVideo);
-					if (tiktokBrandOrganicToggle !== undefined) formData.brand_organic_toggle = String(tiktokBrandOrganicToggle);
+					if (brandContentToggle !== undefined) formData.brand_content_toggle = String(brandContentToggle);
+					if (brandOrganicToggle !== undefined) formData.brand_organic_toggle = String(brandOrganicToggle);
 					if (tiktokIsAigc !== undefined) formData.is_aigc = String(tiktokIsAigc);
 					if (tiktokPostMode) formData.post_mode = tiktokPostMode;
 				}
@@ -1819,7 +2042,7 @@ export class UploadPost implements INodeType {
 				const youtubeMadeForKids = this.getNodeParameter('youtubeMadeForKids', i) as boolean | undefined;
 				const youtubeThumbnail = this.getNodeParameter('youtubeThumbnail', i) as string | undefined;
 
-				if (youtubeTagsRaw) formData.tags = youtubeTagsRaw.split(',').map(tag => tag.trim());
+				if (youtubeTagsRaw) formData['tags[]'] = youtubeTagsRaw.split(',').map(tag => tag.trim());
 				if (youtubeCategoryId) formData.categoryId = youtubeCategoryId;
 				if (youtubePrivacyStatus) formData.privacyStatus = youtubePrivacyStatus;
 				if (youtubeEmbeddable !== undefined) formData.embeddable = String(youtubeEmbeddable);
@@ -1847,47 +2070,145 @@ export class UploadPost implements INodeType {
 						}
 					}
 				}
+
+				const youtubeSelfDeclaredMadeForKids = this.getNodeParameter('youtubeSelfDeclaredMadeForKids', i) as boolean | undefined;
+				const youtubeContainsSyntheticMedia = this.getNodeParameter('youtubeContainsSyntheticMedia', i) as boolean | undefined;
+				const youtubeDefaultLanguage = this.getNodeParameter('youtubeDefaultLanguage', i) as string | undefined;
+				const youtubeDefaultAudioLanguage = this.getNodeParameter('youtubeDefaultAudioLanguage', i) as string | undefined;
+				const youtubeAllowedCountries = this.getNodeParameter('youtubeAllowedCountries', i) as string | undefined;
+				const youtubeBlockedCountries = this.getNodeParameter('youtubeBlockedCountries', i) as string | undefined;
+				const youtubeHasPaidProductPlacement = this.getNodeParameter('youtubeHasPaidProductPlacement', i) as boolean | undefined;
+				const youtubeRecordingDate = this.getNodeParameter('youtubeRecordingDate', i) as string | undefined;
+
+				if (youtubeSelfDeclaredMadeForKids !== undefined) formData.selfDeclaredMadeForKids = String(youtubeSelfDeclaredMadeForKids);
+				if (youtubeContainsSyntheticMedia !== undefined) formData.containsSyntheticMedia = String(youtubeContainsSyntheticMedia);
+				if (youtubeDefaultLanguage) formData.defaultLanguage = youtubeDefaultLanguage;
+				if (youtubeDefaultAudioLanguage) formData.defaultAudioLanguage = youtubeDefaultAudioLanguage;
+				if (youtubeAllowedCountries) formData.allowedCountries = youtubeAllowedCountries;
+				if (youtubeBlockedCountries) formData.blockedCountries = youtubeBlockedCountries;
+				if (youtubeHasPaidProductPlacement !== undefined) formData.hasPaidProductPlacement = String(youtubeHasPaidProductPlacement);
+				if (youtubeRecordingDate) formData.recordingDate = youtubeRecordingDate;
 			}
 
 				// Threads description handled via override block
 
 			if (isUploadOperation && platforms.includes('x')) {
+				// Common X parameters for all operations
+				const xQuoteTweetId = this.getNodeParameter('xQuoteTweetId', i, '') as string;
+				const xGeoPlaceId = this.getNodeParameter('xGeoPlaceId', i, '') as string;
+				const xForSuperFollowersOnly = this.getNodeParameter('xForSuperFollowersOnly', i, false) as boolean;
+				const xCommunityId = this.getNodeParameter('xCommunityId', i, '') as string;
+				const xShareWithFollowers = this.getNodeParameter('xShareWithFollowers', i, false) as boolean;
+				const xDirectMessageDeepLink = this.getNodeParameter('xDirectMessageDeepLink', i, '') as string;
+				const xCardUri = this.getNodeParameter('xCardUri', i, '') as string;
+
+				if (xQuoteTweetId) formData.quote_tweet_id = xQuoteTweetId;
+				if (xGeoPlaceId) formData.geo_place_id = xGeoPlaceId;
+				if (xForSuperFollowersOnly) formData.for_super_followers_only = String(xForSuperFollowersOnly);
+				if (xCommunityId) formData.community_id = xCommunityId;
+				if (xShareWithFollowers) formData.share_with_followers = String(xShareWithFollowers);
+				if (xDirectMessageDeepLink) formData.direct_message_deep_link = xDirectMessageDeepLink;
+				if (xCardUri) formData.card_uri = xCardUri;
+
 				if (operation === 'uploadText') {
 					const xPostUrlText = this.getNodeParameter('xPostUrlText', i) as string | undefined;
 					if (xPostUrlText) formData.post_url = xPostUrlText;
-					
-					const xTaggedUserIdsText = this.getNodeParameter('xTaggedUserIds', i) as string | undefined;
+
 					const xReplySettingsText = this.getNodeParameter('xReplySettings', i) as string | undefined;
-					if (xTaggedUserIdsText) formData.tagged_user_ids = xTaggedUserIdsText.split(',').map(id => id.trim());
-					if (xReplySettingsText) formData.reply_settings = xReplySettingsText;
+					if (xReplySettingsText && xReplySettingsText !== 'everyone') formData.reply_settings = xReplySettingsText;
+
+					// Poll parameters (only for text)
+					const xPollDuration = this.getNodeParameter('xPollDuration', i, 1440) as number;
+					const xPollOptionsRaw = this.getNodeParameter('xPollOptions', i, '') as string;
+					const xPollReplySettings = this.getNodeParameter('xPollReplySettings', i, 'following') as string;
+
+					// Check for mutually exclusive fields
+					const xCardUri = this.getNodeParameter('xCardUri', i, '') as string;
+					const xQuoteTweetId = this.getNodeParameter('xQuoteTweetId', i, '') as string;
+					const xDirectMessageDeepLink = this.getNodeParameter('xDirectMessageDeepLink', i, '') as string;
+
+					const hasPollOptions = xPollOptionsRaw && xPollOptionsRaw.trim();
+					const hasCardUri = xCardUri && xCardUri.trim();
+					const hasQuoteTweetId = xQuoteTweetId && xQuoteTweetId.trim();
+					const hasDirectMessageDeepLink = xDirectMessageDeepLink && xDirectMessageDeepLink.trim();
+
+					// Validate mutually exclusive fields
+					if (hasPollOptions && (hasCardUri || hasQuoteTweetId || hasDirectMessageDeepLink)) {
+						const conflictingFields = [];
+						if (hasCardUri) conflictingFields.push('X Card URI');
+						if (hasQuoteTweetId) conflictingFields.push('X Quote Tweet ID');
+						if (hasDirectMessageDeepLink) conflictingFields.push('X Direct Message Deep Link');
+						throw new NodeOperationError(this.getNode(), `X Poll Options cannot be used with: ${conflictingFields.join(', ')}. These fields are mutually exclusive.`);
+					}
+
+					// Process poll options if provided
+					if (hasPollOptions) {
+						const pollOptions = xPollOptionsRaw.split(',').map(opt => opt.trim()).filter(opt => opt.length > 0);
+
+						// Validate poll options according to Upload-Post API requirements
+						if (pollOptions.length < 2 || pollOptions.length > 4) {
+							throw new NodeOperationError(this.getNode(), `X Poll Options must contain between 2 and 4 non-empty options. Found: ${pollOptions.length}`);
+						}
+
+						// Validate each option is max 25 characters
+						const invalidOptions = pollOptions.filter(opt => opt.length > 25);
+						if (invalidOptions.length > 0) {
+							throw new NodeOperationError(this.getNode(), `X Poll Options cannot exceed 25 characters each. Invalid options: ${invalidOptions.join(', ')}`);
+						}
+
+						// Validate poll duration (5 minutes to 7 days = 10080 minutes)
+						if (xPollDuration < 5 || xPollDuration > 10080) {
+							throw new NodeOperationError(this.getNode(), `X Poll Duration must be between 5 and 10080 minutes (5 minutes to 7 days). Provided: ${xPollDuration}`);
+						}
+
+						// Set poll parameters according to Upload-Post API
+						formData['poll_options[]'] = pollOptions;
+						formData.poll_duration = xPollDuration;
+						formData.poll_reply_settings = xPollReplySettings;
+					}
+
 					try {
 						const xLongTextAsPostText = this.getNodeParameter('xLongTextAsPost', i, false) as boolean;
 						if (xLongTextAsPostText) formData.x_long_text_as_post = String(xLongTextAsPostText);
 					} catch {}
-					
+
 					delete formData.nullcast;
 					delete formData.place_id;
-					delete formData.poll_duration;
-					delete formData.poll_options;
-					delete formData.poll_reply_settings;
-				} else if (operation === 'uploadVideo') {
+				} else if (operation === 'uploadVideo' || operation === 'uploadPhotos') {
 					const xTaggedUserIds = this.getNodeParameter('xTaggedUserIds', i) as string | undefined;
 					const xReplySettings = this.getNodeParameter('xReplySettings', i) as string | undefined;
 					const xNullcastVideo = this.getNodeParameter('xNullcastVideo', i) as boolean | undefined;
-					const xPlaceIdVideo = this.getNodeParameter('xPlaceIdVideo', i) as string | undefined;
-					const xPollDurationVideo = this.getNodeParameter('xPollDurationVideo', i) as number | undefined;
-					const xPollOptionsVideoRaw = this.getNodeParameter('xPollOptionsVideo', i) as string | undefined;
-					const xPollReplySettingsVideo = this.getNodeParameter('xPollReplySettingsVideo', i) as string | undefined;
-						const xLongTextAsPost = this.getNodeParameter('xLongTextAsPost', i, false) as boolean;
 
-					if (xTaggedUserIds) formData.tagged_user_ids = xTaggedUserIds.split(',').map(id => id.trim());
-					if (xReplySettings) formData.reply_settings = xReplySettings;
+					if (xTaggedUserIds) formData['tagged_user_ids[]'] = xTaggedUserIds.split(',').map(id => id.trim());
+					if (xReplySettings && xReplySettings !== 'everyone') formData.reply_settings = xReplySettings;
 					if (xNullcastVideo !== undefined) formData.nullcast = String(xNullcastVideo);
-					if (xPlaceIdVideo) formData.place_id = xPlaceIdVideo;
-					if (xPollDurationVideo !== undefined) formData.poll_duration = xPollDurationVideo;
-					if (xPollOptionsVideoRaw) formData.poll_options = xPollOptionsVideoRaw.split(',').map(opt => opt.trim());
-					if (xPollReplySettingsVideo) formData.poll_reply_settings = xPollReplySettingsVideo;
-						if (xLongTextAsPost) formData.x_long_text_as_post = String(xLongTextAsPost);
+
+					if (operation === 'uploadVideo') {
+						try {
+							const xLongTextAsPost = this.getNodeParameter('xLongTextAsPost', i, false) as boolean;
+							if (xLongTextAsPost) formData.x_long_text_as_post = String(xLongTextAsPost);
+						} catch {}
+					}
+				}
+			}
+
+			if (isUploadOperation && platforms.includes('threads')) {
+				if (operation === 'uploadText') {
+					const threadsTitle = this.getNodeParameter('threadsTitle', i, '') as string;
+					if (threadsTitle) formData.threads_title = threadsTitle;
+
+					const threadsLongTextAsPost = this.getNodeParameter('threadsLongTextAsPost', i, false) as boolean;
+					if (threadsLongTextAsPost) formData.threads_long_text_as_post = String(threadsLongTextAsPost);
+				}
+			}
+
+			if (isUploadOperation && platforms.includes('reddit')) {
+				if (operation === 'uploadText') {
+					const redditSubreddit = this.getNodeParameter('redditSubreddit', i) as string;
+					formData.subreddit = redditSubreddit;
+
+					const redditFlairId = this.getNodeParameter('redditFlairId', i, '') as string;
+					if (redditFlairId) formData.flair_id = redditFlairId;
 				}
 			}
 
@@ -1925,6 +2246,10 @@ export class UploadPost implements INodeType {
 					(options as any).qs = qs;
 				}
 			}
+
+			// Log form data for debugging
+			this.logger.info(`Operation: ${operation}, Is Upload Operation: ${isUploadOperation}`);
+			this.logger.info('Complete Form Data being sent (JSON): ' + JSON.stringify(formData, null, 2));
 
 			const responseData = await this.helpers.request(options);
 
