@@ -13,6 +13,11 @@ import {
 	sleep
 } from 'n8n-workflow';
 
+const MANUAL_USER_VALUE = '__manual_user__';
+const MANUAL_FACEBOOK_VALUE = '__manual_facebook__';
+const MANUAL_LINKEDIN_VALUE = '__manual_linkedin__';
+const MANUAL_PINTEREST_VALUE = '__manual_pinterest__';
+
 export class UploadPost implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Upload Post',
@@ -96,16 +101,33 @@ export class UploadPost implements INodeType {
 
 		// Common Fields for all operations
 			{
-				displayName: 'User Identifier',
+				displayName: 'User Identifier Name or ID',
 				name: 'user',
-				type: 'string',
+				type: 'options',
+				noDataExpression: true,
 				required: true,
 				default: '',
-				description: 'The Profile Name you created in your upload-post.com account. You can find it in the \'Manage Users\' section (e.g., app.upload-post.com/manage-users).',
+				description: 'Choose from your created profiles, or specify a profile name using an <a href="https://docs.n8n.io/code/expressions/">expression</a>. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				typeOptions: { loadOptionsMethod: 'getUserProfiles' },
 				displayOptions: {
 					show: {
 						resource: ['uploads','users'],
 						operation: ['uploadPhotos','uploadVideo','uploadText','generateJwt']
+					}
+				},
+			},
+			{
+				displayName: 'User Identifier (Manual Entry)',
+				name: 'userManual',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'Provide a profile name or ID when it does not appear in the list',
+				displayOptions: {
+					show: {
+						resource: ['uploads','users'],
+						operation: ['uploadPhotos','uploadVideo','uploadText','generateJwt'],
+						user: [MANUAL_USER_VALUE]
 					}
 				},
 			},
@@ -525,12 +547,29 @@ export class UploadPost implements INodeType {
 				displayName: 'Target LinkedIn Page Name or ID',
 				name: 'targetLinkedinPageId',
 				type: 'options',
+				noDataExpression: true,
 				default: '',
 				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-				typeOptions: { loadOptionsMethod: 'getLinkedinPages' },
+				typeOptions: { loadOptionsMethod: 'getLinkedinPages', loadOptionsDependsOn: ['user'] },
 				displayOptions: {
 					show: {
-						operation: ['uploadPhotos', 'uploadVideo', 'uploadText']
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
+						platform: ['linkedin']
+					}
+				},
+			},
+			{
+				displayName: 'LinkedIn Page Name or ID (Manual Entry)',
+				name: 'targetLinkedinPageIdManual',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'Provide the LinkedIn page identifier when it does not appear in the list',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
+						platform: ['linkedin'],
+						targetLinkedinPageId: [MANUAL_LINKEDIN_VALUE]
 					}
 				},
 			},
@@ -553,13 +592,30 @@ export class UploadPost implements INodeType {
 				displayName: 'Facebook Page Name or ID',
 				name: 'facebookPageId',
 				type: 'options',
+				noDataExpression: true,
 				required: true,
 				default: '',
 				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-				typeOptions: { loadOptionsMethod: 'getFacebookPages' },
+				typeOptions: { loadOptionsMethod: 'getFacebookPages', loadOptionsDependsOn: ['user'] },
 				displayOptions: {
 					show: {
-						operation: ['uploadPhotos', 'uploadVideo', 'uploadText']
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
+						platform: ['facebook']
+					}
+				},
+			},
+			{
+				displayName: 'Facebook Page Name or ID (Manual Entry)',
+				name: 'facebookPageIdManual',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'Provide the Facebook page identifier when it does not appear in the list',
+				displayOptions: {
+					show: {
+						operation: ['uploadPhotos', 'uploadVideo', 'uploadText'],
+						platform: ['facebook'],
+						facebookPageId: [MANUAL_FACEBOOK_VALUE]
 					}
 				},
 			},
@@ -1184,13 +1240,31 @@ export class UploadPost implements INodeType {
 				displayName: 'Pinterest Board Name or ID',
 				name: 'pinterestBoardId',
 				type: 'options',
+				noDataExpression: true,
 				default: '',
 				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-				typeOptions: { loadOptionsMethod: 'getPinterestBoards' },
+				typeOptions: { loadOptionsMethod: 'getPinterestBoards', loadOptionsDependsOn: ['user'] },
 				displayOptions: {
 					show: {
 						resource: ['uploads'],
-						operation: ['uploadPhotos', 'uploadVideo']
+						operation: ['uploadPhotos', 'uploadVideo'],
+						platform: ['pinterest']
+					},
+				},
+			},
+			{
+				displayName: 'Pinterest Board Name or ID (Manual Entry)',
+				name: 'pinterestBoardIdManual',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'Provide the Pinterest board identifier when it does not appear in the list',
+				displayOptions: {
+					show: {
+						resource: ['uploads'],
+						operation: ['uploadPhotos', 'uploadVideo'],
+						platform: ['pinterest'],
+						pinterestBoardId: [MANUAL_PINTEREST_VALUE]
 					},
 				},
 			},
@@ -1519,61 +1593,133 @@ export class UploadPost implements INodeType {
 				return allPlatforms.filter(platform => supportedPlatforms.includes(platform.value));
 			},
 			async getFacebookPages(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const credentials = await this.getCredentials('uploadPostApi');
-				const apiKey = credentials.apiKey as string;
-				const profile = (this.getCurrentNodeParameter('user') as string | undefined) || '';
-				const qs: IDataObject = {};
-				if (profile) qs.profile = profile;
-				const options: IRequestOptions = {
-					uri: 'https://api.upload-post.com/api/uploadposts/facebook/pages',
-					method: 'GET',
-					headers: { Authorization: `ApiKey ${apiKey}` },
-					qs,
-					json: true,
-				};
-				const resp = await this.helpers.request(options);
-				const pages = (resp && (resp.pages || resp.data || [])) as Array<{ id: string; name?: string }>;
-				return (pages || []).map(p => ({ name: p.name ? `${p.name} (${p.id})` : p.id, value: p.id }));
+				try {
+					const credentials = await this.getCredentials('uploadPostApi');
+					const apiKey = credentials.apiKey as string;
+					const profile = (this.getCurrentNodeParameter('user') as string | undefined) || '';
+					const qs: IDataObject = {};
+					if (profile) qs.profile = profile;
+					const options: IRequestOptions = {
+						uri: 'https://api.upload-post.com/api/uploadposts/facebook/pages',
+						method: 'GET',
+						headers: { Authorization: `ApiKey ${apiKey}` },
+						qs,
+						json: true,
+					};
+					const resp = await this.helpers.request(options);
+					const pages = (resp && (resp.pages || resp.data || [])) as Array<{ id: string; name?: string }>;
+					const pageOptions = (pages || []).map(p => ({ name: p.name ? `${p.name} (${p.id})` : p.id, value: p.id }));
+					return [
+						{ name: 'Manual entry...', value: MANUAL_FACEBOOK_VALUE },
+						...pageOptions
+					];
+				} catch (error) {
+					// Return manual option to allow manual input when API fails
+					return [
+						{ name: 'Manual entry...', value: MANUAL_FACEBOOK_VALUE }
+					];
+				}
 			},
 			async getLinkedinPages(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const credentials = await this.getCredentials('uploadPostApi');
-				const apiKey = credentials.apiKey as string;
-				const profile = (this.getCurrentNodeParameter('user') as string | undefined) || '';
-				const qs: IDataObject = {};
-				if (profile) qs.profile = profile;
-				const options: IRequestOptions = {
-					uri: 'https://api.upload-post.com/api/uploadposts/linkedin/pages',
-					method: 'GET',
-					headers: { Authorization: `ApiKey ${apiKey}` },
-					qs,
-					json: true,
-				};
-				const resp = await this.helpers.request(options);
-				const pages = (resp && (resp.pages || resp.data || [])) as Array<{ id: string; name?: string }>;
-				const pageOptions = (pages || []).map(p => ({ name: p.name ? `${p.name} (${p.id})` : p.id, value: p.id }));
+				try {
+					const credentials = await this.getCredentials('uploadPostApi');
+					const apiKey = credentials.apiKey as string;
+					const profile = (this.getCurrentNodeParameter('user') as string | undefined) || '';
+					const qs: IDataObject = {};
+					if (profile) qs.profile = profile;
+					const options: IRequestOptions = {
+						uri: 'https://api.upload-post.com/api/uploadposts/linkedin/pages',
+						method: 'GET',
+						headers: { Authorization: `ApiKey ${apiKey}` },
+						qs,
+						json: true,
+					};
+					const resp = await this.helpers.request(options);
+					const pages = (resp && (resp.pages || resp.data || [])) as Array<{ id: string; name?: string }>;
+					const pageOptions = (pages || []).map(p => ({ name: p.name ? `${p.name} (${p.id})` : p.id, value: p.id }));
 
-				// Add "Me" option at the beginning to post to personal profile
-				return [
-					{ name: 'Me (Personal Profile)', value: 'me' },
-					...pageOptions
-				];
+					return [
+						{ name: 'Manual entry...', value: MANUAL_LINKEDIN_VALUE },
+						{ name: 'Me (Personal Profile)', value: 'me' },
+						...pageOptions
+					];
+				} catch (error) {
+					// Return manual and "Me" options to allow manual input when API fails
+					return [
+						{ name: 'Manual entry...', value: MANUAL_LINKEDIN_VALUE },
+						{ name: 'Me (Personal Profile)', value: 'me' }
+					];
+				}
 			},
 			async getPinterestBoards(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const credentials = await this.getCredentials('uploadPostApi');
-				const apiKey = credentials.apiKey as string;
-				const profile = (this.getCurrentNodeParameter('user') as string | undefined) || '';
-				const qs: IDataObject = {};
-				if (profile) qs.profile = profile;
-				const options: IRequestOptions = {
-					uri: 'https://api.upload-post.com/api/uploadposts/pinterest/boards',
-					method: 'GET',
-					headers: { Authorization: `ApiKey ${apiKey}` },
-					qs,
-					json: true,
-				};
-				const resp = await this.helpers.request(options);
-				const boards = (resp && (resp.boards || resp.data || [])) as Array<{ id: string; name?: string }>;
-				return (boards || []).map(b => ({ name: b.name ? `${b.name} (${b.id})` : b.id, value: b.id }));
+				try {
+					const credentials = await this.getCredentials('uploadPostApi');
+					const apiKey = credentials.apiKey as string;
+					const profile = (this.getCurrentNodeParameter('user') as string | undefined) || '';
+					const qs: IDataObject = {};
+					if (profile) qs.profile = profile;
+					const options: IRequestOptions = {
+						uri: 'https://api.upload-post.com/api/uploadposts/pinterest/boards',
+						method: 'GET',
+						headers: { Authorization: `ApiKey ${apiKey}` },
+						qs,
+						json: true,
+					};
+					const resp = await this.helpers.request(options);
+					const boards = (resp && (resp.boards || resp.data || [])) as Array<{ id: string; name?: string }>;
+					const boardOptions = (boards || []).map(b => ({ name: b.name ? `${b.name} (${b.id})` : b.id, value: b.id }));
+					return [
+						{ name: 'Manual entry...', value: MANUAL_PINTEREST_VALUE },
+						...boardOptions
+					];
+				} catch (error) {
+					// Return manual option to allow manual input when API fails
+					return [
+						{ name: 'Manual entry...', value: MANUAL_PINTEREST_VALUE }
+					];
+				}
+			},
+			async getUserProfiles(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				try {
+					const credentials = await this.getCredentials('uploadPostApi');
+					const apiKey = credentials.apiKey as string;
+					const options: IRequestOptions = {
+						uri: 'https://api.upload-post.com/api/uploadposts/users',
+						method: 'GET',
+						headers: { Authorization: `ApiKey ${apiKey}` },
+						json: true,
+					};
+					const resp = await this.helpers.request(options);
+					const profiles = (resp && resp.profiles) as Array<{
+						username: string;
+						social_accounts: Record<string, any>;
+						created_at: string;
+					}>;
+					const profileOptions = (profiles || []).map(profile => {
+						// Create a display name that shows connected platforms
+						const connectedPlatforms = Object.keys(profile.social_accounts || {})
+							.filter(platform => profile.social_accounts[platform] && typeof profile.social_accounts[platform] === 'object')
+							.join(', ');
+
+						const displayName = connectedPlatforms
+							? `${profile.username} (${connectedPlatforms})`
+							: profile.username;
+
+						return {
+							name: displayName,
+							value: profile.username
+						};
+					});
+					return [
+						{ name: 'Manual entry...', value: MANUAL_USER_VALUE },
+						...profileOptions
+					];
+				} catch (error) {
+					// Return manual option to allow manual input when API fails
+					return [
+						{ name: 'Manual entry...', value: MANUAL_USER_VALUE }
+					];
+				}
 			},
 		},
 	};
@@ -1586,7 +1732,13 @@ export class UploadPost implements INodeType {
 			const operation = this.getNodeParameter('operation', i) as string;
 			const isUploadOperation = ['uploadPhotos', 'uploadVideo', 'uploadText'].includes(operation);
 			const needsUser = isUploadOperation || operation === 'generateJwt';
-			const user = needsUser ? (this.getNodeParameter('user', i) as string) : '';
+			const userSelection = needsUser ? (this.getNodeParameter('user', i) as string) : '';
+			const userManualValue = needsUser && userSelection === MANUAL_USER_VALUE
+				? (this.getNodeParameter('userManual', i) as string)
+				: '';
+			const user = needsUser
+				? (userSelection === MANUAL_USER_VALUE ? userManualValue : userSelection)
+				: '';
 			let platforms = isUploadOperation ? (this.getNodeParameter('platform', i) as string[]) : [];
 			const title = isUploadOperation ? (this.getNodeParameter('title', i) as string) : '';
 
@@ -1893,7 +2045,11 @@ export class UploadPost implements INodeType {
 			}
 			// Pinterest specific (only when uploading)
 			if (isUploadOperation && platforms.includes('pinterest')) {
-				const pinterestBoardId = this.getNodeParameter('pinterestBoardId', i) as string | undefined;
+				const pinterestSelection = this.getNodeParameter('pinterestBoardId', i) as string | undefined;
+				const pinterestManual = pinterestSelection === MANUAL_PINTEREST_VALUE
+					? (this.getNodeParameter('pinterestBoardIdManual', i) as string)
+					: '';
+				const pinterestBoardId = pinterestSelection === MANUAL_PINTEREST_VALUE ? pinterestManual : pinterestSelection;
 				if (pinterestBoardId) formData.pinterest_board_id = pinterestBoardId;
 					const pinterestLink = this.getNodeParameter('pinterestLink', i) as string | undefined;
 					if (pinterestLink) formData.pinterest_link = pinterestLink;
@@ -1920,7 +2076,11 @@ export class UploadPost implements INodeType {
 
 			// Add platform specifics only for uploads
 			if (isUploadOperation && platforms.includes('linkedin')) {
-				const targetLinkedinPageId = this.getNodeParameter('targetLinkedinPageId', i) as string | undefined;
+				const targetLinkedinSelection = this.getNodeParameter('targetLinkedinPageId', i) as string | undefined;
+				const targetLinkedinManual = targetLinkedinSelection === MANUAL_LINKEDIN_VALUE
+					? (this.getNodeParameter('targetLinkedinPageIdManual', i) as string)
+					: '';
+				const targetLinkedinPageId = targetLinkedinSelection === MANUAL_LINKEDIN_VALUE ? targetLinkedinManual : targetLinkedinSelection;
 				if (targetLinkedinPageId && targetLinkedinPageId !== 'me') {
 					// Extract only the numeric ID from a URN like "urn:li:organization:108870530"
 					const match = targetLinkedinPageId.match(/(\d+)$/);
@@ -1943,7 +2103,11 @@ export class UploadPost implements INodeType {
 			}
 
 			if (isUploadOperation && platforms.includes('facebook')) {
-				const facebookPageId = this.getNodeParameter('facebookPageId', i) as string;
+				const facebookPageSelection = this.getNodeParameter('facebookPageId', i) as string;
+				const facebookPageManual = facebookPageSelection === MANUAL_FACEBOOK_VALUE
+					? (this.getNodeParameter('facebookPageIdManual', i) as string)
+					: '';
+				const facebookPageId = facebookPageSelection === MANUAL_FACEBOOK_VALUE ? facebookPageManual : facebookPageSelection;
 				formData.facebook_page_id = facebookPageId;
 				if (operation === 'uploadVideo') {
 					const facebookVideoState = this.getNodeParameter('facebookVideoState', i) as string | undefined;
