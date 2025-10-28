@@ -1004,7 +1004,7 @@ export class UploadPost implements INodeType {
 				required: true,
 				default: '',
 				description: 'Destination subreddit, without r/ (e.g., python)',
-				displayOptions: { show: { operation: ['uploadText'] } },
+				displayOptions: { show: { operation: ['uploadText'], platform: ['reddit'] } },
 			},
 			{
 				displayName: 'Reddit Flair ID',
